@@ -41,7 +41,7 @@
                     <TextBlock Text="BIM" FontFamily="{StaticResource AppFont}" FontSize="20"
                                FontWeight="Bold" Foreground="{StaticResource PrimaryBlueBrush}"/>
                     <TextBlock Text="Command Centre" FontFamily="{StaticResource AppFont}" FontSize="10"
-                               Foreground="{StaticResource TextTertiaryBrush}" LetterSpacing="1"/>
+                               Foreground="{StaticResource TextTertiaryBrush}"/>
                 </StackPanel>
             </Border>
 
