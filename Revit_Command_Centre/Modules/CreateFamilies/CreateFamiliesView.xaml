@@ -65,7 +65,7 @@
                 <StackPanel Grid.Column="0" Grid.Row="4">
                     <TextBlock Text="UNICLASS CODE" Style="{StaticResource LabelStyle}"/>
                     <TextBox x:Name="TxtUniclassCode" Style="{StaticResource TextBoxStyle}"
-                             PlaceholderText="e.g. Ss_25_10_30"/>
+                             Tag="e.g. Ss_25_10_30"/>
                 </StackPanel>
 
                 <!-- Parameters to inject -->
@@ -89,7 +89,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBox x:Name="TxtSaveFolder" Grid.Column="0"
                                  Style="{StaticResource TextBoxStyle}"
-                                 PlaceholderText="Select a folder…" IsReadOnly="True"/>
+                                 IsReadOnly="True"/>
                         <Button Grid.Column="2" Content="Browse…"
                                 Style="{StaticResource SecondaryButtonStyle}"
                                 Click="BrowseFolder_Click"/>
