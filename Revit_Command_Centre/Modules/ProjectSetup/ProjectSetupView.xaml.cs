@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using WpfComboBox = System.Windows.Controls.ComboBox;
 using System.Windows.Input;
 using System.Windows.Media;
 using Autodesk.Revit.UI;
@@ -107,7 +108,7 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
 
         // ──────────────────────────────────────  helpers  ─────────────────────────────────────────
 
-        private static void SetComboByContent(ComboBox combo, string value)
+        private static void SetComboByContent(WpfComboBox combo, string value)
         {
             foreach (ComboBoxItem item in combo.Items)
             {
