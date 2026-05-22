@@ -157,9 +157,9 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
 
         private void BrowseFolder_Click(object sender, RoutedEventArgs e)
         {
-            var dlg = new System.Windows.Forms.FolderBrowserDialog { Description = "Select save folder" };
-            if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-                TxtSaveFolder.Text = dlg.SelectedPath;
+            var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Select save folder" };
+            if (dlg.ShowDialog() == true)
+                TxtSaveFolder.Text = dlg.FolderName;
         }
 
         // ──────────────────────────────────────  generate (called by MainWindow)  ─────────────────

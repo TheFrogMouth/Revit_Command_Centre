@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using Revit_Command_Centre.Models;
+using BimParameter = Revit_Command_Centre.Models.FamilyParameter;
 
 namespace Revit_Command_Centre.Services
 {
@@ -19,11 +19,7 @@ namespace Revit_Command_Centre.Services
         /// Opens a single .rfa file, adds every parameter in <paramref name="parameters"/>
         /// that does not already exist, then saves and closes the family document.
         /// </summary>
-        /// <param name="app">Active UIApplication (provides the Revit API context).</param>
-        /// <param name="rfaPath">Full path to the .rfa file.</param>
-        /// <param name="parameters">Parameters to inject.</param>
-        /// <returns>Log message describing what was added or skipped.</returns>
-        public static string AddParametersToFamily(UIApplication app, string rfaPath, List<FamilyParameter> parameters)
+        public static string AddParametersToFamily(UIApplication app, string rfaPath, List<BimParameter> parameters)
         {
             if (!File.Exists(rfaPath))
                 throw new FileNotFoundException("Family file not found.", rfaPath);
@@ -45,12 +41,12 @@ namespace Revit_Command_Centre.Services
 
                 FamilyManager fm = familyDoc.FamilyManager;
 
-                // Build a set of existing parameter names for fast lookup
+                // Build a set of existing parameter names for fast lookup (uses Revit's FamilyParameter type)
                 var existingNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (FamilyParameter fp in fm.Parameters)
+                foreach (Autodesk.Revit.DB.FamilyParameter fp in fm.Parameters)
                     existingNames.Add(fp.Definition.Name);
 
-                foreach (FamilyParameter param in parameters)
+                foreach (BimParameter param in parameters)
                 {
                     if (existingNames.Contains(param.Name))
                     {
@@ -59,12 +55,10 @@ namespace Revit_Command_Centre.Services
                         continue;
                     }
 
-                    // Map string type name to SpecTypeId for Revit 2025 API
                     ForgeTypeId specType = MapParameterType(param.ParameterType);
-                    ForgeTypeId groupType = GroupTypeId.IdentityData;
 
                     // isInstance: true = instance parameter; type parameters are less common for BIM data
-                    fm.AddParameter(param.Name, groupType, specType, true);
+                    fm.AddParameter(param.Name, GroupTypeId.IdentityData, specType, true);
                     existingNames.Add(param.Name);
                     log.AppendLine($"  ADD   {param.Name}");
                     added++;
@@ -83,8 +77,7 @@ namespace Revit_Command_Centre.Services
         /// <summary>
         /// Checks which required parameters are missing from a family without modifying it.
         /// </summary>
-        /// <returns>List of parameter names that are missing from the family.</returns>
-        public static List<string> ValidateFamily(UIApplication app, string rfaPath, List<FamilyParameter> required)
+        public static List<string> ValidateFamily(UIApplication app, string rfaPath, List<BimParameter> required)
         {
             if (!File.Exists(rfaPath))
                 throw new FileNotFoundException("Family file not found.", rfaPath);
@@ -98,10 +91,10 @@ namespace Revit_Command_Centre.Services
                     return missing;
 
                 var existingNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (FamilyParameter fp in familyDoc.FamilyManager.Parameters)
+                foreach (Autodesk.Revit.DB.FamilyParameter fp in familyDoc.FamilyManager.Parameters)
                     existingNames.Add(fp.Definition.Name);
 
-                foreach (FamilyParameter param in required.Where(p => p.IsRequired))
+                foreach (BimParameter param in required.Where(p => p.IsRequired))
                 {
                     if (!existingNames.Contains(param.Name))
                         missing.Add(param.Name);
@@ -121,7 +114,7 @@ namespace Revit_Command_Centre.Services
         /// Reports progress via the <paramref name="onProgress"/> callback.
         /// </summary>
         public static void BatchProcess(UIApplication app, string folderPath,
-            List<FamilyParameter> parameters, Action<string, int, int> onProgress)
+            List<BimParameter> parameters, Action<string, int, int> onProgress)
         {
             if (!Directory.Exists(folderPath))
                 throw new DirectoryNotFoundException($"Folder not found: {folderPath}");

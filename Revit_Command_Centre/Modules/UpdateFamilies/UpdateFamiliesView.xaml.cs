@@ -59,13 +59,13 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
 
         private void SelectFolder()
         {
-            var dlg = new System.Windows.Forms.FolderBrowserDialog
+            var dlg = new Microsoft.Win32.OpenFolderDialog
             {
-                Description = "Select a folder containing .rfa files",
-                ShowNewFolderButton = false
+                Title = "Select a folder containing .rfa files",
+                Multiselect = false
             };
-            if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-                SetFolder(dlg.SelectedPath);
+            if (dlg.ShowDialog() == true)
+                SetFolder(dlg.FolderName);
         }
 
         private void SetFolder(string path)
