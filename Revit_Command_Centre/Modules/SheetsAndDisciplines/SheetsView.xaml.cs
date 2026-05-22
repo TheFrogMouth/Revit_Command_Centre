@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Autodesk.Revit.UI;
+using WpfTextBox = System.Windows.Controls.TextBox;
 
 namespace Revit_Command_Centre.Modules.SheetsAndDisciplines
 {
@@ -214,7 +215,7 @@ namespace Revit_Command_Centre.Modules.SheetsAndDisciplines
             var panel = new StackPanel { Margin = new Thickness(16) };
             panel.Children.Add(new TextBlock { Text = "Discipline code (e.g. L):", FontSize = 12, Margin = new Thickness(0, 0, 0, 6) });
 
-            var txtCode = new TextBox { MaxLength = 3, FontSize = 14, Padding = new Thickness(6), Margin = new Thickness(0, 0, 0, 12) };
+            var txtCode = new WpfTextBox { MaxLength = 3, FontSize = 14, Padding = new Thickness(6), Margin = new Thickness(0, 0, 0, 12) };
             panel.Children.Add(txtCode);
 
             var row = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
