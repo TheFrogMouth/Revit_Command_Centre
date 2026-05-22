@@ -48,8 +48,8 @@ namespace Revit_Command_Centre.Services
                 double widthFt  = UnitUtils.ConvertToInternalUnits(widthMm,  UnitTypeId.Millimeters);
                 double heightFt = UnitUtils.ConvertToInternalUnits(heightMm, UnitTypeId.Millimeters);
 
-                EnsureParameter(fm, "BIM_Width",  SpecTypeId.Length, GroupTypeId.Dimensions, widthFt);
-                EnsureParameter(fm, "BIM_Height", SpecTypeId.Length, GroupTypeId.Dimensions, heightFt);
+                EnsureParameter(fm, "BIM_Width",  SpecTypeId.Length, GroupTypeId.Geometry, widthFt);
+                EnsureParameter(fm, "BIM_Height", SpecTypeId.Length, GroupTypeId.Geometry, heightFt);
 
                 var existingNames = GetExistingParameterNames(fm);
                 foreach (BimParameter param in parameters)
