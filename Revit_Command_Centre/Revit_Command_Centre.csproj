@@ -1,9 +1,35 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>Revit_Command_Centre</AssemblyName>
+    <RootNamespace>Revit_Command_Centre</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Configurations>Debug;Release</Configurations>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Reference Include="RevitAPI">
+      <HintPath>C:\Program Files\Autodesk\Revit 2025\RevitAPI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>C:\Program Files\Autodesk\Revit 2025\RevitAPIUI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Deploy built DLL and .addin manifest to Revit 2025 add-ins folder after every build -->
+  <Target Name="DeployToRevit" AfterTargets="Build">
+    <Exec Command="if not exist &quot;$(APPDATA)\Autodesk\Revit\Addins\2025\&quot; mkdir &quot;$(APPDATA)\Autodesk\Revit\Addins\2025\&quot;" ContinueOnError="true" />
+    <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll"
+          DestinationFolder="$(APPDATA)\Autodesk\Revit\Addins\2025\"
+          ContinueOnError="true" />
+    <Copy SourceFiles="$(SolutionDir)Revit_Command_Centre.addin"
+          DestinationFolder="$(APPDATA)\Autodesk\Revit\Addins\2025\"
+          ContinueOnError="true" />
+  </Target>
 </Project>
