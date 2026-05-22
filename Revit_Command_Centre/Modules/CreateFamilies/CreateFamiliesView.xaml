@@ -1,0 +1,111 @@
+<UserControl x:Class="Revit_Command_Centre.Modules.CreateFamilies.CreateFamiliesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="Segoe UI">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Revit_Command_Centre;component/Resources/Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <StackPanel Margin="20,16,20,24">
+
+        <!-- ── TEMPLATE PICKER ── -->
+        <TextBlock Text="FAMILY TEMPLATE" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,10"/>
+
+        <UniformGrid x:Name="TemplateGrid" Columns="4" Rows="2" Margin="0,0,0,14">
+            <!-- Template cards generated in code-behind -->
+        </UniformGrid>
+
+        <!-- ── DIMENSIONS & NAMING ── -->
+        <TextBlock Text="DIMENSIONS &amp; NAMING" Style="{StaticResource SectionHeaderStyle}" Margin="0,4,0,10"/>
+
+        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="12"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Width -->
+                <StackPanel Grid.Column="0" Grid.Row="0">
+                    <TextBlock Text="WIDTH (MM)" Style="{StaticResource LabelStyle}"/>
+                    <TextBox x:Name="TxtWidth" Style="{StaticResource TextBoxStyle}"
+                             Text="1000" TextChanged="Naming_Changed"/>
+                </StackPanel>
+
+                <!-- Height -->
+                <StackPanel Grid.Column="2" Grid.Row="0">
+                    <TextBlock Text="HEIGHT (MM)" Style="{StaticResource LabelStyle}"/>
+                    <TextBox x:Name="TxtHeight" Style="{StaticResource TextBoxStyle}"
+                             Text="2100" TextChanged="Naming_Changed"/>
+                </StackPanel>
+
+                <!-- Family name (auto) -->
+                <StackPanel Grid.Column="0" Grid.Row="2" Grid.ColumnSpan="3">
+                    <TextBlock Text="FAMILY NAME" Style="{StaticResource LabelStyle}"/>
+                    <TextBox x:Name="TxtFamilyName" Style="{StaticResource TextBoxStyle}"
+                             Text="BIM_Generic_1000x2100"/>
+                </StackPanel>
+
+                <!-- Uniclass code -->
+                <StackPanel Grid.Column="0" Grid.Row="4">
+                    <TextBlock Text="UNICLASS CODE" Style="{StaticResource LabelStyle}"/>
+                    <TextBox x:Name="TxtUniclassCode" Style="{StaticResource TextBoxStyle}"
+                             PlaceholderText="e.g. Ss_25_10_30"/>
+                </StackPanel>
+
+                <!-- Parameters to inject -->
+                <StackPanel Grid.Column="2" Grid.Row="4">
+                    <TextBlock Text="PARAMETERS TO INJECT" Style="{StaticResource LabelStyle}"/>
+                    <ComboBox x:Name="CmbParameterTier" Style="{StaticResource ComboBoxStyle}">
+                        <ComboBoxItem Content="From project config" IsSelected="True"/>
+                        <ComboBoxItem Content="Tier 1 only"/>
+                        <ComboBoxItem Content="All tiers"/>
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- Save to folder -->
+                <StackPanel Grid.Column="0" Grid.Row="6" Grid.ColumnSpan="3">
+                    <TextBlock Text="SAVE TO FOLDER" Style="{StaticResource LabelStyle}"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtSaveFolder" Grid.Column="0"
+                                 Style="{StaticResource TextBoxStyle}"
+                                 PlaceholderText="Select a folder…" IsReadOnly="True"/>
+                        <Button Grid.Column="2" Content="Browse…"
+                                Style="{StaticResource SecondaryButtonStyle}"
+                                Click="BrowseFolder_Click"/>
+                    </Grid>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ── INFO HINT ── -->
+        <Border Background="{StaticResource LightBlueBgBrush}"
+                BorderBrush="{StaticResource PrimaryBlueBrush}" BorderThickness="1"
+                CornerRadius="6" Padding="12,10">
+            <TextBlock x:Name="TxtHint" TextWrapping="Wrap"
+                       FontSize="11" Foreground="{StaticResource PrimaryBlueBrush}"
+                       Text="Family will be named per project convention and saved with shared parameters pre-loaded from your Tier 2 config."/>
+        </Border>
+
+    </StackPanel>
+</UserControl>
