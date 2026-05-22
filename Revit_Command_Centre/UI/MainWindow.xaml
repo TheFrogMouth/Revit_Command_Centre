@@ -5,7 +5,7 @@
         xmlns:sh="clr-namespace:Revit_Command_Centre.Modules.SheetsAndDisciplines"
         xmlns:uf="clr-namespace:Revit_Command_Centre.Modules.UpdateFamilies"
         xmlns:cf="clr-namespace:Revit_Command_Centre.Modules.CreateFamilies"
-        Title="BIM Tools — Command Centre"
+        Title="BIM Command Centre"
         Width="680" MinHeight="600" MinWidth="680"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"

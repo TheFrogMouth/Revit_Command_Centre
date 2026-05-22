@@ -11,11 +11,11 @@ namespace Revit_Command_Centre
     [Regeneration(RegenerationOption.Manual)]
     public class App : IExternalApplication
     {
-        private const string TabName = "BIM Tools";
+        private const string TabName = "BIM Command Centre";
         private const string PanelName = "Tools";
-        private const string ButtonName = "LaunchBIMTools";
-        private const string ButtonText = "Launch\nBIM Tools";
-        private const string ButtonTooltip = "Launch the BIM Tools panel";
+        private const string ButtonName = "LaunchBIMCommandCentre";
+        private const string ButtonText = "BIM Command\nCentre";
+        private const string ButtonTooltip = "Launch the BIM Command Centre panel";
         private const string CommandClass = "Revit_Command_Centre.LaunchCommand";
 
         /// <summary>
@@ -47,7 +47,7 @@ namespace Revit_Command_Centre
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("BIM Tools — Startup Error", ex.Message);
+                TaskDialog.Show("BIM Command Centre — Startup Error", ex.Message);
                 return Result.Failed;
             }
         }

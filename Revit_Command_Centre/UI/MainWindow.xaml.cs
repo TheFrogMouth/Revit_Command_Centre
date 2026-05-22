@@ -147,13 +147,13 @@ namespace Revit_Command_Centre.UI
             {
                 ProjectConfig? config = ConfigService.LoadConfig(dlg.FileName.Replace(".bimconfig.json", ".rvt"));
                 if (config == null)
-                    MessageBox.Show("No config found for this file.", "BIM Tools", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show("No config found for this file.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
                 else if (ContentArea.Content is ProjectSetupView psv)
                     psv.LoadConfig(config);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load config:\n{ex.Message}", "BIM Tools", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to load config:\n{ex.Message}", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -170,11 +170,11 @@ namespace Revit_Command_Centre.UI
                     ConfigService.SaveConfig(config, rvtPath);
 
                 RefreshDocumentChip();
-                MessageBox.Show("Config saved successfully.", "BIM Tools", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Config saved successfully.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to save config:\n{ex.Message}", "BIM Tools", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to save config:\n{ex.Message}", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -213,7 +213,7 @@ namespace Revit_Command_Centre.UI
                 var docs = GetOpenDocuments();
                 if (docs.Count == 0)
                 {
-                    MessageBox.Show("No Revit documents are currently open.", "BIM Tools", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show("No Revit documents are currently open.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
 
@@ -225,7 +225,7 @@ namespace Revit_Command_Centre.UI
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Could not retrieve open documents:\n{ex.Message}", "BIM Tools", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show($"Could not retrieve open documents:\n{ex.Message}", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
