@@ -171,17 +171,17 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
         {
             if (!double.TryParse(TxtWidth.Text, out double width) || width <= 0)
             {
-                MessageBox.Show("Please enter a valid width in mm.", "BIM Tools", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Please enter a valid width in mm.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             if (!double.TryParse(TxtHeight.Text, out double height) || height <= 0)
             {
-                MessageBox.Show("Please enter a valid height in mm.", "BIM Tools", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Please enter a valid height in mm.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             if (string.IsNullOrWhiteSpace(TxtSaveFolder.Text))
             {
-                MessageBox.Show("Please select a save folder.", "BIM Tools", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Please select a save folder.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
@@ -202,11 +202,11 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
                     TxtSaveFolder.Text,
                     parameters);
 
-                MessageBox.Show($"Family created successfully:\n{outputPath}", "BIM Tools", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show($"Family created successfully:\n{outputPath}", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to generate family:\n{ex.Message}", "BIM Tools", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to generate family:\n{ex.Message}", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

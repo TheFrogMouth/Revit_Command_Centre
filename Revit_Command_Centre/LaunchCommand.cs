@@ -2,6 +2,7 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Revit_Command_Centre.UI;
+using System.Windows.Interop;
 
 namespace Revit_Command_Centre
 {
@@ -32,6 +33,10 @@ namespace Revit_Command_Centre
 
                 _openWindow = new MainWindow(commandData.Application);
                 _openWindow.Closed += (_, _) => _openWindow = null;
+
+                // Tie the modeless window to Revit's HWND to prevent focus-related crashes
+                new WindowInteropHelper(_openWindow).Owner = commandData.Application.MainWindowHandle;
+
                 _openWindow.Show();
 
                 return Result.Succeeded;

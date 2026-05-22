@@ -182,7 +182,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
         {
             if (string.IsNullOrEmpty(_selectedFolder))
             {
-                MessageBox.Show("Please select a folder first.", "BIM Tools", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Please select a folder first.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
                 return false;
             }
             return true;
