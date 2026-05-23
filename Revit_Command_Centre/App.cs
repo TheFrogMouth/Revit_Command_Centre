@@ -87,8 +87,16 @@ namespace Revit_Command_Centre
                     _window = new MainWindow(app);
                     _window.Closed += (_, _) => _window = null;
 
-                    // Parent to Revit's main HWND so the window stays in front of Revit
-                    new WindowInteropHelper(_window).Owner = app.MainWindowHandle;
+                    // Create the HWND before Show() so we can force software rendering.
+                    // WPF's hardware (DirectX) render path conflicts with Revit's own GPU
+                    // context on some drivers, causing a 0xc0000005 access violation.
+                    var helper = new WindowInteropHelper(_window);
+                    helper.EnsureHandle();
+                    helper.Owner = app.MainWindowHandle;
+
+                    var hwndSource = HwndSource.FromHwnd(helper.Handle);
+                    if (hwndSource?.CompositionTarget != null)
+                        hwndSource.CompositionTarget.RenderMode = RenderMode.SoftwareOnly;
 
                     _window.Show();
                 }
