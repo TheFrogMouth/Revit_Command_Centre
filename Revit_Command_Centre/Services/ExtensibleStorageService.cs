@@ -33,7 +33,6 @@ namespace Revit_Command_Centre.Services
             builder.SetVendorId(VendorId);
             builder.SetReadAccessLevel(AccessLevel.Public);
             builder.SetWriteAccessLevel(AccessLevel.Vendor);
-            builder.SetVendorId(VendorId);
             builder.AddSimpleField(FieldName, typeof(string));
 
             return builder.Finish();

@@ -41,8 +41,9 @@ namespace Revit_Command_Centre.UI
         {
             _uiApp = uiApp ?? throw new ArgumentNullException(nameof(uiApp));
 
-            // Pre-fetch everything from the Revit API while still inside Execute.
-            // After Execute returns, any Revit API call from a WPF handler crashes Revit.
+            // Only read simple string properties here — no extensible storage.
+            // doc.ProjectInformation.GetEntity() caused a native 0xc0000005 crash
+            // that bypasses try-catch (AccessViolationException from native Revit API).
             try
             {
                 var doc = uiApp.ActiveUIDocument?.Document;
@@ -50,12 +51,6 @@ namespace Revit_Command_Centre.UI
                 {
                     _cachedDocTitle = doc.Title;
                     _cachedDocPath  = doc.PathName;
-
-                    ProjectConfig? config = ExtensibleStorageService.ReadConfig(doc);
-                    _cachedHasConfig  = config != null;
-                    _cachedProjNumber = config != null
-                        ? (string.IsNullOrEmpty(config.ProjectNumber) ? "No project number" : config.ProjectNumber)
-                        : "No config saved";
                 }
             }
             catch { /* leave defaults */ }
