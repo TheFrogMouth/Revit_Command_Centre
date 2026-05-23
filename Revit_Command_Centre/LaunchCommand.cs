@@ -1,43 +1,29 @@
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using Revit_Command_Centre.UI;
-using System.Windows.Interop;
 
 namespace Revit_Command_Centre
 {
     /// <summary>
-    /// IExternalCommand that opens the BIM Tools main window.
-    /// Called when the user clicks "Launch BIM Tools" in the ribbon.
-    /// TransactionMode.Manual — the window manages its own transactions.
+    /// Ribbon command. Activates the existing window or raises the ExternalEvent so Revit
+    /// opens the window during its next idle cycle — never during Execute itself.
     /// </summary>
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
     public class LaunchCommand : IExternalCommand
     {
-        private static MainWindow? _openWindow;
-
-        /// <summary>
-        /// Opens (or brings to front) the main BIM Tools modeless WPF window.
-        /// Passes the UIApplication so child panels can make Revit API calls.
-        /// </summary>
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
             try
             {
-                if (_openWindow != null && _openWindow.IsLoaded)
+                if (App.Instance?.IsWindowOpen == true)
                 {
-                    _openWindow.Activate();
-                    return Result.Succeeded;
+                    App.Instance.ActivateWindow();
                 }
-
-                _openWindow = new MainWindow(commandData.Application);
-                _openWindow.Closed += (_, _) => _openWindow = null;
-
-                // Tie the modeless window to Revit's HWND to prevent focus-related crashes
-                new WindowInteropHelper(_openWindow).Owner = commandData.Application.MainWindowHandle;
-
-                _openWindow.Show();
+                else
+                {
+                    App.Instance?.RaiseShowWindow();
+                }
 
                 return Result.Succeeded;
             }
