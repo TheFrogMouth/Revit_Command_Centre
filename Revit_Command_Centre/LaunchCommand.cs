@@ -4,10 +4,6 @@ using Autodesk.Revit.UI;
 
 namespace Revit_Command_Centre
 {
-    /// <summary>
-    /// Ribbon command. Activates the existing window or raises the ExternalEvent so Revit
-    /// opens the window during its next idle cycle — never during Execute itself.
-    /// </summary>
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
     public class LaunchCommand : IExternalCommand
@@ -16,18 +12,15 @@ namespace Revit_Command_Centre
         {
             try
             {
-                if (App.Instance?.IsWindowOpen == true)
-                {
-                    App.Instance.ActivateWindow();
-                }
-                else
-                {
-                    App.Instance?.RaiseShowWindow();
-                }
+                // Store UIApplication so the dockable pane can read doc info in its Loaded handler.
+                App.CurrentUIApp = commandData.Application;
+
+                DockablePane pane = commandData.Application.GetDockablePane(App.PaneId);
+                pane.Show();
 
                 return Result.Succeeded;
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 message = ex.Message;
                 return Result.Failed;

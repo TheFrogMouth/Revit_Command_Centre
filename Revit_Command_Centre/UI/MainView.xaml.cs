@@ -14,45 +14,50 @@ using Revit_Command_Centre.Services;
 namespace Revit_Command_Centre.UI
 {
     /// <summary>
-    /// Main floating panel. Hosts sidebar navigation and swaps module UserControls
-    /// into ContentArea based on the selected nav button.
+    /// Main BIM Command Centre panel hosted inside Revit's dockable pane framework.
+    /// Using a dockable pane (UserControl) rather than a top-level Window avoids
+    /// WPF render-target creation crashing in Revit's process-level rendering context.
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainView : UserControl
     {
-        private readonly UIApplication _uiApp;
         private Button? _activeNavButton;
-
-        // Revit API is only safe inside IExternalCommand.Execute. These fields are populated
-        // in the constructor (which runs within Execute) so WPF event handlers never touch Revit.
-        private readonly string _cachedDocTitle   = "No document open";
-        private readonly string _cachedProjNumber = "—";
-        private readonly string _cachedDocPath    = string.Empty;
-        private readonly bool   _cachedHasConfig  = false;
+        private string _cachedDocTitle   = "No document open";
+        private string _cachedProjNumber = "—";
+        private string _cachedDocPath    = string.Empty;
 
         private static readonly Dictionary<string, (string Title, string Subtitle)> PageMeta = new()
         {
-            ["ProjectSetup"]    = ("Project Setup",          "Configure project information and compliance tier"),
-            ["Sheets"]          = ("Sheets & Disciplines",   "Define active disciplines and sheet naming convention"),
-            ["UpdateFamilies"]  = ("Update Families",        "Add shared parameters to existing family files"),
-            ["CreateFamilies"]  = ("Create Families",        "Generate new families from templates"),
+            ["ProjectSetup"]   = ("Project Setup",        "Configure project information and compliance tier"),
+            ["Sheets"]         = ("Sheets & Disciplines", "Define active disciplines and sheet naming convention"),
+            ["UpdateFamilies"] = ("Update Families",      "Add shared parameters to existing family files"),
+            ["CreateFamilies"] = ("Create Families",      "Generate new families from templates"),
         };
 
-        public MainWindow(UIApplication uiApp)
+        public MainView()
         {
-            _uiApp = uiApp ?? throw new ArgumentNullException(nameof(uiApp));
-            // No Revit API calls here at all — defer to a safe point after the window is shown.
             InitializeComponent();
             Loaded += OnLoaded;
         }
 
+        private UIApplication? UiApp => App.CurrentUIApp;
+
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            // Apply cached doc info — zero Revit API calls here.
+            // Populate doc info now that Revit has stored UIApplication in App.CurrentUIApp.
+            try
+            {
+                var doc = UiApp?.ActiveUIDocument?.Document;
+                if (doc != null)
+                {
+                    _cachedDocTitle  = doc.Title;
+                    _cachedDocPath   = doc.PathName;
+                }
+            }
+            catch { }
+
             TxtDocumentName.Text  = _cachedDocTitle;
             TxtProjectNumber.Text = _cachedProjNumber;
-            DocStatusDot.Fill     = _cachedHasConfig
-                ? new SolidColorBrush(Color.FromRgb(0x1D, 0x9E, 0x75))
-                : new SolidColorBrush(Color.FromRgb(0xBA, 0x75, 0x17));
+            DocStatusDot.Fill     = new SolidColorBrush(Color.FromRgb(0xBA, 0x75, 0x17));
 
             ActivateView("ProjectSetup", BtnProjectSetup);
         }
@@ -96,24 +101,22 @@ namespace Revit_Command_Centre.UI
         {
             AddTopbarButton("Load from file", isSecondary: true,  onClick: ProjectSetup_LoadFromFile);
             AddTopbarButton("Save & apply",   isSecondary: false, onClick: ProjectSetup_SaveAndApply);
-            var view = new ProjectSetupView(_uiApp);
-            view.Tag = "ProjectSetupInstance";
-            return view;
+            return new ProjectSetupView(UiApp!);
         }
 
-        private UIElement CreateSheetsView() => new SheetsView(_uiApp);
+        private UIElement CreateSheetsView() => new SheetsView(UiApp!);
 
         private UIElement CreateUpdateFamiliesView()
         {
             AddTopbarButton("Validate only", isSecondary: true,  onClick: UpdateFamilies_Validate);
             AddTopbarButton("Run",           isSecondary: false, onClick: UpdateFamilies_Run);
-            return new UpdateFamiliesView(_uiApp);
+            return new UpdateFamiliesView(UiApp!);
         }
 
         private UIElement CreateCreateFamiliesView()
         {
             AddTopbarButton("Generate", isSecondary: false, onClick: CreateFamilies_Generate);
-            return new CreateFamiliesView(_uiApp);
+            return new CreateFamiliesView(UiApp!);
         }
 
         // ──────────────────────────────────────  topbar helpers  ──────────────────────────────────
@@ -145,13 +148,15 @@ namespace Revit_Command_Centre.UI
             {
                 ProjectConfig? config = ConfigService.LoadConfig(dlg.FileName.Replace(".bimconfig.json", ".rvt"));
                 if (config == null)
-                    MessageBox.Show("No config found for this file.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show("No config found for this file.", "BIM Command Centre",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
                 else if (ContentArea.Content is ProjectSetupView psv)
                     psv.LoadConfig(config);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load config:\n{ex.Message}", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to load config:\n{ex.Message}", "BIM Command Centre",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -162,84 +167,40 @@ namespace Revit_Command_Centre.UI
             try
             {
                 ProjectConfig config = psv.BuildConfig();
-
-                // _cachedDocPath was captured inside Execute — safe to use here.
                 if (!string.IsNullOrEmpty(_cachedDocPath))
                     ConfigService.SaveConfig(config, _cachedDocPath);
-
-                MessageBox.Show("Config saved successfully.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Config saved successfully.", "BIM Command Centre",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to save config:\n{ex.Message}", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to save config:\n{ex.Message}", "BIM Command Centre",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         private void UpdateFamilies_Validate(object sender, RoutedEventArgs e)
         {
-            if (ContentArea.Content is UpdateFamiliesView ufv)
-                ufv.RunValidation();
+            if (ContentArea.Content is UpdateFamiliesView ufv) ufv.RunValidation();
         }
 
         private void UpdateFamilies_Run(object sender, RoutedEventArgs e)
         {
-            if (ContentArea.Content is UpdateFamiliesView ufv)
-                ufv.RunBatchProcess();
+            if (ContentArea.Content is UpdateFamiliesView ufv) ufv.RunBatchProcess();
         }
 
         private void CreateFamilies_Generate(object sender, RoutedEventArgs e)
         {
-            if (ContentArea.Content is CreateFamiliesView cfv)
-                cfv.GenerateFamily();
+            if (ContentArea.Content is CreateFamiliesView cfv) cfv.GenerateFamily();
         }
 
         // ──────────────────────────────────────  project chip  ────────────────────────────────────
 
         private void ProjectChip_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            // Just show the cached document name in a message — no live Revit API call.
             MessageBox.Show(
                 $"Active document: {_cachedDocTitle}\nPath: {(string.IsNullOrEmpty(_cachedDocPath) ? "(unsaved)" : _cachedDocPath)}",
                 "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-    }
-
-    // ──────────────────────────────────────  inline document picker  ──────────────────────────────
-
-    internal class DocumentPickerDialog : Window
-    {
-        public string? SelectedDocumentTitle { get; private set; }
-
-        public DocumentPickerDialog(List<string> documentTitles)
-        {
-            Title  = "Select Document";
-            Width  = 340;
-            Height = 280;
-            WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            ResizeMode = ResizeMode.NoResize;
-
-            var panel = new StackPanel { Margin = new Thickness(16) };
-            panel.Children.Add(new TextBlock
-            {
-                Text       = "Open Revit documents:",
-                FontSize   = 12,
-                FontWeight = FontWeights.Medium,
-                Margin     = new Thickness(0, 0, 0, 8)
-            });
-
-            var listBox = new ListBox { Height = 150, Margin = new Thickness(0, 0, 0, 12), ItemsSource = documentTitles };
-            panel.Children.Add(listBox);
-
-            var btnRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            var btnCancel = new Button { Content = "Cancel", Width = 80, Height = 30, Margin = new Thickness(0, 0, 8, 0) };
-            btnCancel.Click += (_, _) => DialogResult = false;
-            var btnOk = new Button { Content = "Select", Width = 80, Height = 30 };
-            btnOk.Click += (_, _) => { if (listBox.SelectedItem is string s) { SelectedDocumentTitle = s; DialogResult = true; } };
-            btnRow.Children.Add(btnCancel);
-            btnRow.Children.Add(btnOk);
-            panel.Children.Add(btnRow);
-
-            Content = panel;
         }
     }
 }
