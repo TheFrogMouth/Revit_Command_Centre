@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -23,7 +22,13 @@ namespace Revit_Command_Centre.UI
         private readonly UIApplication _uiApp;
         private Button? _activeNavButton;
 
-        // Page metadata keyed by nav Tag
+        // Revit API is only safe inside IExternalCommand.Execute. These fields are populated
+        // in the constructor (which runs within Execute) so WPF event handlers never touch Revit.
+        private readonly string _cachedDocTitle   = "No document open";
+        private readonly string _cachedProjNumber = "—";
+        private readonly string _cachedDocPath    = string.Empty;
+        private readonly bool   _cachedHasConfig  = false;
+
         private static readonly Dictionary<string, (string Title, string Subtitle)> PageMeta = new()
         {
             ["ProjectSetup"]    = ("Project Setup",          "Configure project information and compliance tier"),
@@ -32,20 +37,42 @@ namespace Revit_Command_Centre.UI
             ["CreateFamilies"]  = ("Create Families",        "Generate new families from templates"),
         };
 
-        /// <summary>
-        /// Initialises the window with a UIApplication reference for downstream Revit API calls.
-        /// </summary>
         public MainWindow(UIApplication uiApp)
         {
             _uiApp = uiApp ?? throw new ArgumentNullException(nameof(uiApp));
+
+            // Pre-fetch everything from the Revit API while still inside Execute.
+            // After Execute returns, any Revit API call from a WPF handler crashes Revit.
+            try
+            {
+                var doc = uiApp.ActiveUIDocument?.Document;
+                if (doc != null)
+                {
+                    _cachedDocTitle = doc.Title;
+                    _cachedDocPath  = doc.PathName;
+
+                    ProjectConfig? config = ExtensibleStorageService.ReadConfig(doc);
+                    _cachedHasConfig  = config != null;
+                    _cachedProjNumber = config != null
+                        ? (string.IsNullOrEmpty(config.ProjectNumber) ? "No project number" : config.ProjectNumber)
+                        : "No config saved";
+                }
+            }
+            catch { /* leave defaults */ }
+
             InitializeComponent();
             Loaded += OnLoaded;
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            RefreshDocumentChip();
-            // Start on Project Setup
+            // Apply cached doc info — zero Revit API calls here.
+            TxtDocumentName.Text  = _cachedDocTitle;
+            TxtProjectNumber.Text = _cachedProjNumber;
+            DocStatusDot.Fill     = _cachedHasConfig
+                ? new SolidColorBrush(Color.FromRgb(0x1D, 0x9E, 0x75))
+                : new SolidColorBrush(Color.FromRgb(0xBA, 0x75, 0x17));
+
             ActivateView("ProjectSetup", BtnProjectSetup);
         }
 
@@ -57,26 +84,20 @@ namespace Revit_Command_Centre.UI
                 ActivateView(tag, btn);
         }
 
-        /// <summary>
-        /// Swaps the active nav button style, updates topbar labels, and loads the correct view.
-        /// </summary>
         private void ActivateView(string tag, Button button)
         {
-            // Reset previous active button
             if (_activeNavButton != null)
                 _activeNavButton.Style = (Style)FindResource("NavButtonStyle");
 
-            button.Style = (Style)FindResource("NavButtonActiveStyle");
+            button.Style     = (Style)FindResource("NavButtonActiveStyle");
             _activeNavButton = button;
 
-            // Update topbar
             if (PageMeta.TryGetValue(tag, out var meta))
             {
                 TxtPageTitle.Text    = meta.Title;
                 TxtPageSubtitle.Text = meta.Subtitle;
             }
 
-            // Swap topbar action buttons and module content
             TopbarButtons.Children.Clear();
             ContentArea.Content = tag switch
             {
@@ -92,18 +113,14 @@ namespace Revit_Command_Centre.UI
 
         private UIElement CreateProjectSetupView()
         {
-            AddTopbarButton("Load from file", isSecondary: true, onClick: ProjectSetup_LoadFromFile);
+            AddTopbarButton("Load from file", isSecondary: true,  onClick: ProjectSetup_LoadFromFile);
             AddTopbarButton("Save & apply",   isSecondary: false, onClick: ProjectSetup_SaveAndApply);
-
             var view = new ProjectSetupView(_uiApp);
             view.Tag = "ProjectSetupInstance";
             return view;
         }
 
-        private UIElement CreateSheetsView()
-        {
-            return new SheetsView(_uiApp);
-        }
+        private UIElement CreateSheetsView() => new SheetsView(_uiApp);
 
         private UIElement CreateUpdateFamiliesView()
         {
@@ -118,7 +135,7 @@ namespace Revit_Command_Centre.UI
             return new CreateFamiliesView(_uiApp);
         }
 
-        // ──────────────────────────────────────  topbar button helpers  ───────────────────────────
+        // ──────────────────────────────────────  topbar helpers  ──────────────────────────────────
 
         private void AddTopbarButton(string label, bool isSecondary, RoutedEventHandler onClick)
         {
@@ -164,12 +181,11 @@ namespace Revit_Command_Centre.UI
             try
             {
                 ProjectConfig config = psv.BuildConfig();
-                string rvtPath = GetActiveDocumentPath();
 
-                if (!string.IsNullOrEmpty(rvtPath))
-                    ConfigService.SaveConfig(config, rvtPath);
+                // _cachedDocPath was captured inside Execute — safe to use here.
+                if (!string.IsNullOrEmpty(_cachedDocPath))
+                    ConfigService.SaveConfig(config, _cachedDocPath);
 
-                RefreshDocumentChip();
                 MessageBox.Show("Config saved successfully.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
             }
             catch (Exception ex)
@@ -200,108 +216,15 @@ namespace Revit_Command_Centre.UI
 
         private void ProjectChip_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            ShowDocumentPicker();
-        }
-
-        /// <summary>
-        /// Displays a simple dialog listing all open Revit documents so the user can switch.
-        /// </summary>
-        private void ShowDocumentPicker()
-        {
-            try
-            {
-                var docs = GetOpenDocuments();
-                if (docs.Count == 0)
-                {
-                    MessageBox.Show("No Revit documents are currently open.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
-
-                var dlg = new DocumentPickerDialog(docs) { Owner = this };
-                if (dlg.ShowDialog() == true && dlg.SelectedDocumentTitle != null)
-                {
-                    RefreshDocumentChip();
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Could not retrieve open documents:\n{ex.Message}", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
-        }
-
-        /// <summary>
-        /// Updates the project chip with the active document name and config status.
-        /// Green dot = config found in extensible storage; amber = not found.
-        /// </summary>
-        private void RefreshDocumentChip()
-        {
-            try
-            {
-                var doc = _uiApp.ActiveUIDocument?.Document;
-                if (doc == null)
-                {
-                    TxtDocumentName.Text  = "No document open";
-                    TxtProjectNumber.Text = "—";
-                    DocStatusDot.Fill     = new SolidColorBrush(Color.FromRgb(0xBA, 0x75, 0x17));
-                    return;
-                }
-
-                TxtDocumentName.Text = doc.Title;
-
-                ProjectConfig? config = ExtensibleStorageService.ReadConfig(doc);
-                if (config != null)
-                {
-                    TxtProjectNumber.Text = string.IsNullOrEmpty(config.ProjectNumber)
-                        ? "No project number"
-                        : config.ProjectNumber;
-                    DocStatusDot.Fill = new SolidColorBrush(Color.FromRgb(0x1D, 0x9E, 0x75));
-                }
-                else
-                {
-                    TxtProjectNumber.Text = "No config saved";
-                    DocStatusDot.Fill     = new SolidColorBrush(Color.FromRgb(0xBA, 0x75, 0x17));
-                }
-            }
-            catch
-            {
-                TxtDocumentName.Text  = "Error reading document";
-                TxtProjectNumber.Text = "—";
-            }
-        }
-
-        // ──────────────────────────────────────  Revit helpers  ───────────────────────────────────
-
-        private string GetActiveDocumentPath()
-        {
-            try
-            {
-                return _uiApp.ActiveUIDocument?.Document?.PathName ?? string.Empty;
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
-
-        private List<string> GetOpenDocuments()
-        {
-            var titles = new List<string>();
-            try
-            {
-                foreach (Autodesk.Revit.DB.Document doc in _uiApp.Application.Documents)
-                    if (!doc.IsFamilyDocument)
-                        titles.Add(doc.Title);
-            }
-            catch { /* no documents accessible */ }
-            return titles;
+            // Just show the cached document name in a message — no live Revit API call.
+            MessageBox.Show(
+                $"Active document: {_cachedDocTitle}\nPath: {(string.IsNullOrEmpty(_cachedDocPath) ? "(unsaved)" : _cachedDocPath)}",
+                "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 
     // ──────────────────────────────────────  inline document picker  ──────────────────────────────
 
-    /// <summary>
-    /// Simple modal dialog that lists open Revit document titles for selection.
-    /// </summary>
     internal class DocumentPickerDialog : Window
     {
         public string? SelectedDocumentTitle { get; private set; }
@@ -315,39 +238,22 @@ namespace Revit_Command_Centre.UI
             ResizeMode = ResizeMode.NoResize;
 
             var panel = new StackPanel { Margin = new Thickness(16) };
-
-            var lbl = new TextBlock
+            panel.Children.Add(new TextBlock
             {
                 Text       = "Open Revit documents:",
                 FontSize   = 12,
                 FontWeight = FontWeights.Medium,
                 Margin     = new Thickness(0, 0, 0, 8)
-            };
-            panel.Children.Add(lbl);
+            });
 
-            var listBox = new ListBox
-            {
-                Height  = 150,
-                Margin  = new Thickness(0, 0, 0, 12),
-                ItemsSource = documentTitles
-            };
+            var listBox = new ListBox { Height = 150, Margin = new Thickness(0, 0, 0, 12), ItemsSource = documentTitles };
             panel.Children.Add(listBox);
 
             var btnRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-
             var btnCancel = new Button { Content = "Cancel", Width = 80, Height = 30, Margin = new Thickness(0, 0, 8, 0) };
             btnCancel.Click += (_, _) => DialogResult = false;
-
             var btnOk = new Button { Content = "Select", Width = 80, Height = 30 };
-            btnOk.Click += (_, _) =>
-            {
-                if (listBox.SelectedItem is string selected)
-                {
-                    SelectedDocumentTitle = selected;
-                    DialogResult = true;
-                }
-            };
-
+            btnOk.Click += (_, _) => { if (listBox.SelectedItem is string s) { SelectedDocumentTitle = s; DialogResult = true; } };
             btnRow.Children.Add(btnCancel);
             btnRow.Children.Add(btnOk);
             panel.Children.Add(btnRow);
