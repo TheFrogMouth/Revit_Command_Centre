@@ -1,14 +1,14 @@
 using System;
+using System.IO;
+using System.Windows.Interop;
+using System.Windows.Media;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using Revit_Command_Centre.UI;
 
 namespace Revit_Command_Centre
 {
-    /// <summary>
-    /// Entry point for the add-in. Creates the ribbon and an ExternalEvent so the modeless
-    /// window can be opened safely when Revit is idle (not during command execution).
-    /// </summary>
     [Regeneration(RegenerationOption.Manual)]
     public class App : IExternalApplication
     {
@@ -30,8 +30,12 @@ namespace Revit_Command_Centre
             {
                 Instance = this;
 
-                // ExternalEvent defers window creation to Revit's idle cycle, avoiding crashes
-                // that occur when a WPF window is shown during IExternalCommand.Execute.
+                // Force software rendering before any WPF window is created.
+                // WPF's DirectX path causes a 0xc0000005 access violation on some AMD
+                // drivers (e.g. RX 9060 XT) when running inside Revit's GPU context.
+                // Must be set at process level here, before any HWND exists.
+                RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
+
                 _showEvent = ExternalEvent.Create(_handler);
 
                 app.CreateRibbonTab(TabName);
@@ -58,7 +62,7 @@ namespace Revit_Command_Centre
             return Result.Succeeded;
         }
 
-        public bool IsWindowOpen   => _handler.IsWindowOpen;
+        public bool IsWindowOpen    => _handler.IsWindowOpen;
         public void ActivateWindow() => _handler.ActivateExisting();
         public void RaiseShowWindow() => _showEvent?.Raise();
 
@@ -66,7 +70,7 @@ namespace Revit_Command_Centre
 
         private sealed class ShowWindowHandler : IExternalEventHandler
         {
-            private System.Windows.Window? _window;
+            private MainWindow? _window;
 
             public bool IsWindowOpen => _window?.IsLoaded == true;
 
@@ -82,41 +86,44 @@ namespace Revit_Command_Centre
                         return;
                     }
 
-                    // DIAGNOSTIC: plain code-only Window with zero XAML and zero Revit API calls.
-                    // If this crashes → WPF window creation itself is broken in this Revit install.
-                    // If this opens → the crash is inside MainWindow's XAML or constructor.
-                    var panel = new System.Windows.Controls.StackPanel { Margin = new System.Windows.Thickness(24) };
-                    panel.Children.Add(new System.Windows.Controls.TextBlock
-                    {
-                        Text     = "BIM Command Centre",
-                        FontSize = 20,
-                        Margin   = new System.Windows.Thickness(0, 0, 0, 12)
-                    });
-                    panel.Children.Add(new System.Windows.Controls.TextBlock
-                    {
-                        Text       = "Diagnostic mode — plain WPF window, no custom XAML.\nIf you can read this, the crash is in the custom XAML/styles.",
-                        FontSize   = 13,
-                        TextWrapping = System.Windows.TextWrapping.Wrap
-                    });
-
-                    _window = new System.Windows.Window
-                    {
-                        Title  = "BIM Command Centre",
-                        Width  = 520,
-                        Height = 320,
-                        WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen,
-                        Content = panel
-                    };
+                    _window = new MainWindow(app);
                     _window.Closed += (_, _) => _window = null;
+
+                    // Belt-and-suspenders per-window software rendering.
+                    // RenderMode must be set before Owner to avoid triggering DirectX init.
+                    var helper = new WindowInteropHelper(_window);
+                    helper.EnsureHandle();
+
+                    var hwndSource = HwndSource.FromHwnd(helper.Handle);
+                    if (hwndSource?.CompositionTarget != null)
+                        hwndSource.CompositionTarget.RenderMode = RenderMode.SoftwareOnly;
+
+                    helper.Owner = app.MainWindowHandle;
+
                     _window.Show();
                 }
                 catch (Exception ex)
                 {
-                    TaskDialog.Show("BIM Command Centre", $"Failed to open window:\n{ex.Message}");
+                    LogError(ex);
+                    TaskDialog.Show("BIM Command Centre", $"Failed to open window:\n{ex.GetType().Name}: {ex.Message}");
                 }
             }
 
             public string GetName() => "Show BIM Command Centre";
+
+            private static void LogError(Exception ex)
+            {
+                try
+                {
+                    string path = Path.Combine(Path.GetTempPath(), "BIMCommandCentre_error.txt");
+                    File.WriteAllText(path,
+                        $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}]\n" +
+                        $"{ex.GetType().FullName}: {ex.Message}\n" +
+                        $"Inner: {ex.InnerException?.Message}\n\n" +
+                        $"{ex.StackTrace}");
+                }
+                catch { }
+            }
         }
     }
 }
