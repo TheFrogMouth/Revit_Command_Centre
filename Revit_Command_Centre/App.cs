@@ -1,9 +1,7 @@
 using System;
-using System.Windows.Interop;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using Revit_Command_Centre.UI;
 
 namespace Revit_Command_Centre
 {
@@ -68,7 +66,7 @@ namespace Revit_Command_Centre
 
         private sealed class ShowWindowHandler : IExternalEventHandler
         {
-            private MainWindow? _window;
+            private System.Windows.Window? _window;
 
             public bool IsWindowOpen => _window?.IsLoaded == true;
 
@@ -84,20 +82,32 @@ namespace Revit_Command_Centre
                         return;
                     }
 
-                    _window = new MainWindow(app);
+                    // DIAGNOSTIC: plain code-only Window with zero XAML and zero Revit API calls.
+                    // If this crashes → WPF window creation itself is broken in this Revit install.
+                    // If this opens → the crash is inside MainWindow's XAML or constructor.
+                    var panel = new System.Windows.Controls.StackPanel { Margin = new System.Windows.Thickness(24) };
+                    panel.Children.Add(new System.Windows.Controls.TextBlock
+                    {
+                        Text     = "BIM Command Centre",
+                        FontSize = 20,
+                        Margin   = new System.Windows.Thickness(0, 0, 0, 12)
+                    });
+                    panel.Children.Add(new System.Windows.Controls.TextBlock
+                    {
+                        Text       = "Diagnostic mode — plain WPF window, no custom XAML.\nIf you can read this, the crash is in the custom XAML/styles.",
+                        FontSize   = 13,
+                        TextWrapping = System.Windows.TextWrapping.Wrap
+                    });
+
+                    _window = new System.Windows.Window
+                    {
+                        Title  = "BIM Command Centre",
+                        Width  = 520,
+                        Height = 320,
+                        WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen,
+                        Content = panel
+                    };
                     _window.Closed += (_, _) => _window = null;
-
-                    // Create the HWND before Show() so we can force software rendering.
-                    // WPF's hardware (DirectX) render path conflicts with Revit's own GPU
-                    // context on some drivers, causing a 0xc0000005 access violation.
-                    var helper = new WindowInteropHelper(_window);
-                    helper.EnsureHandle();
-                    helper.Owner = app.MainWindowHandle;
-
-                    var hwndSource = HwndSource.FromHwnd(helper.Handle);
-                    if (hwndSource?.CompositionTarget != null)
-                        hwndSource.CompositionTarget.RenderMode = RenderMode.SoftwareOnly;
-
                     _window.Show();
                 }
                 catch (Exception ex)
