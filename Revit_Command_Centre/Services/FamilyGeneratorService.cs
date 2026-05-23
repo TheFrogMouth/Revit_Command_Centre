@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
-using Revit_Command_Centre.Models;
+using BimParameter = Revit_Command_Centre.Models.FamilyParameter;
 
 namespace Revit_Command_Centre.Services
 {
@@ -13,7 +13,6 @@ namespace Revit_Command_Centre.Services
     /// </summary>
     public static class FamilyGeneratorService
     {
-        // Maps the user-friendly template name to the Revit template filename
         private static readonly Dictionary<string, string> TemplateMap = new(StringComparer.OrdinalIgnoreCase)
         {
             { "Door",        "Door.rft" },
@@ -31,16 +30,8 @@ namespace Revit_Command_Centre.Services
         /// parameters for width and height, injects the provided shared parameters,
         /// and saves the family to <paramref name="savePath"/>.
         /// </summary>
-        /// <param name="app">Active UIApplication.</param>
-        /// <param name="templateType">Template type name (matches TemplateMap key).</param>
-        /// <param name="widthMm">Width in millimetres (converted to feet internally).</param>
-        /// <param name="heightMm">Height in millimetres.</param>
-        /// <param name="name">Family name (used as the file name).</param>
-        /// <param name="savePath">Destination folder for the .rfa file.</param>
-        /// <param name="parameters">Parameters to inject after creation.</param>
-        /// <returns>Full path to the saved .rfa file.</returns>
         public static string GenerateFamily(UIApplication app, string templateType, double widthMm,
-            double heightMm, string name, string savePath, List<FamilyParameter> parameters)
+            double heightMm, string name, string savePath, List<BimParameter> parameters)
         {
             string templateFile = ResolveTemplatePath(app, templateType);
 
@@ -54,17 +45,14 @@ namespace Revit_Command_Centre.Services
 
                 FamilyManager fm = familyDoc.FamilyManager;
 
-                // Convert mm to feet (Revit internal unit)
                 double widthFt  = UnitUtils.ConvertToInternalUnits(widthMm,  UnitTypeId.Millimeters);
                 double heightFt = UnitUtils.ConvertToInternalUnits(heightMm, UnitTypeId.Millimeters);
 
-                // Add dimension parameters if not already present from the template
-                EnsureParameter(fm, "BIM_Width",  SpecTypeId.Length, GroupTypeId.Dimensions, widthFt);
-                EnsureParameter(fm, "BIM_Height", SpecTypeId.Length, GroupTypeId.Dimensions, heightFt);
+                EnsureParameter(fm, "BIM_Width",  SpecTypeId.Length, GroupTypeId.Geometry, widthFt);
+                EnsureParameter(fm, "BIM_Height", SpecTypeId.Length, GroupTypeId.Geometry, heightFt);
 
-                // Inject all project-level shared parameters
                 var existingNames = GetExistingParameterNames(fm);
-                foreach (FamilyParameter param in parameters)
+                foreach (BimParameter param in parameters)
                 {
                     if (existingNames.Contains(param.Name))
                         continue;
@@ -89,7 +77,6 @@ namespace Revit_Command_Centre.Services
 
         // ──────────────────────────────────────────── helpers ────
 
-        /// <summary>Locates the template file in the Revit Family Templates folder.</summary>
         private static string ResolveTemplatePath(UIApplication app, string templateType)
         {
             if (!TemplateMap.TryGetValue(templateType, out string? templateFileName))
@@ -107,12 +94,12 @@ namespace Revit_Command_Centre.Services
             return templatePath;
         }
 
-        /// <summary>Adds a length parameter and sets its current type value, or skips if already present.</summary>
+        /// <summary>Adds a parameter and sets its current type value, skips if already present.</summary>
         private static void EnsureParameter(FamilyManager fm, string name, ForgeTypeId specType,
             ForgeTypeId groupType, double value)
         {
-            FamilyParameter? existing = null;
-            foreach (FamilyParameter p in fm.Parameters)
+            Autodesk.Revit.DB.FamilyParameter? existing = null;
+            foreach (Autodesk.Revit.DB.FamilyParameter p in fm.Parameters)
             {
                 if (p.Definition.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
                 {
@@ -121,7 +108,7 @@ namespace Revit_Command_Centre.Services
                 }
             }
 
-            FamilyParameter target = existing ?? fm.AddParameter(name, groupType, specType, false);
+            Autodesk.Revit.DB.FamilyParameter target = existing ?? fm.AddParameter(name, groupType, specType, false);
 
             if (fm.CurrentType != null)
                 fm.Set(target, value);
@@ -130,7 +117,7 @@ namespace Revit_Command_Centre.Services
         private static HashSet<string> GetExistingParameterNames(FamilyManager fm)
         {
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (FamilyParameter p in fm.Parameters)
+            foreach (Autodesk.Revit.DB.FamilyParameter p in fm.Parameters)
                 names.Add(p.Definition.Name);
             return names;
         }

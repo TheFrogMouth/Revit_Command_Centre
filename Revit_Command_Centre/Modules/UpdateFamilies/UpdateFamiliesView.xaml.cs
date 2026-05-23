@@ -59,13 +59,13 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
 
         private void SelectFolder()
         {
-            var dlg = new System.Windows.Forms.FolderBrowserDialog
+            var dlg = new Microsoft.Win32.OpenFolderDialog
             {
-                Description = "Select a folder containing .rfa files",
-                ShowNewFolderButton = false
+                Title = "Select a folder containing .rfa files",
+                Multiselect = false
             };
-            if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-                SetFolder(dlg.SelectedPath);
+            if (dlg.ShowDialog() == true)
+                SetFolder(dlg.FolderName);
         }
 
         private void SetFolder(string path)
@@ -182,7 +182,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
         {
             if (string.IsNullOrEmpty(_selectedFolder))
             {
-                MessageBox.Show("Please select a folder first.", "BIM Tools", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Please select a folder first.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
                 return false;
             }
             return true;
