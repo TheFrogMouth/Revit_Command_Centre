@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using System.Windows.Interop;
+using System.Threading;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -62,31 +62,60 @@ namespace Revit_Command_Centre
 
         private sealed class ShowWindowHandler : IExternalEventHandler
         {
+            // _window lives on the WPF thread; access only via _window.Dispatcher or _isOpen flag.
             private MainWindow? _window;
+            private volatile bool _isOpen = false;
 
-            public bool IsWindowOpen => _window?.IsLoaded == true;
+            public bool IsWindowOpen => _isOpen;
 
-            public void ActivateExisting() => _window?.Activate();
+            public void ActivateExisting()
+            {
+                if (_isOpen && _window != null)
+                    _window.Dispatcher.BeginInvoke(() => _window?.Activate());
+            }
 
             public void Execute(UIApplication app)
             {
                 try
                 {
-                    if (_window?.IsLoaded == true)
+                    if (_isOpen)
                     {
-                        _window.Activate();
+                        ActivateExisting();
                         return;
                     }
 
-                    _window = new MainWindow(app);
-                    _window.Closed += (_, _) => _window = null;
+                    // Create the window on a dedicated STA thread with its own Dispatcher.
+                    // This isolates our WPF rendering entirely from Revit's main-thread
+                    // rendering state (process-level SoftwareOnly mode, WPF channel, etc.)
+                    // which has been causing 0xc0000005 crashes when we attempt window
+                    // creation directly on Revit's main thread.
+                    var uiApp = app;
+                    var thread = new Thread(() =>
+                    {
+                        try
+                        {
+                            _window = new MainWindow(uiApp);
+                            _window.Closed += (_, _) =>
+                            {
+                                _isOpen = false;
+                                _window = null;
+                                System.Windows.Threading.Dispatcher.CurrentDispatcher.InvokeShutdown();
+                            };
+                            _isOpen = true;
+                            _window.Show();
+                            System.Windows.Threading.Dispatcher.Run();
+                        }
+                        catch (Exception ex)
+                        {
+                            _isOpen = false;
+                            _window = null;
+                            LogError(ex);
+                        }
+                    });
 
-                    // Revit already sets ProcessRenderMode = SoftwareOnly at startup.
-                    // Setting it again per-HWND caused a 0xc0000005 crash (double-init
-                    // of the WPF software renderer). Just set Owner and show.
-                    new WindowInteropHelper(_window).Owner = app.MainWindowHandle;
-
-                    _window.Show();
+                    thread.SetApartmentState(ApartmentState.STA);
+                    thread.IsBackground = true;
+                    thread.Start();
                 }
                 catch (Exception ex)
                 {

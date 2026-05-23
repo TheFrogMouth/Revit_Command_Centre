@@ -40,21 +40,7 @@ namespace Revit_Command_Centre.UI
         public MainWindow(UIApplication uiApp)
         {
             _uiApp = uiApp ?? throw new ArgumentNullException(nameof(uiApp));
-
-            // Only read simple string properties here — no extensible storage.
-            // doc.ProjectInformation.GetEntity() caused a native 0xc0000005 crash
-            // that bypasses try-catch (AccessViolationException from native Revit API).
-            try
-            {
-                var doc = uiApp.ActiveUIDocument?.Document;
-                if (doc != null)
-                {
-                    _cachedDocTitle = doc.Title;
-                    _cachedDocPath  = doc.PathName;
-                }
-            }
-            catch { /* leave defaults */ }
-
+            // No Revit API calls here at all — defer to a safe point after the window is shown.
             InitializeComponent();
             Loaded += OnLoaded;
         }
