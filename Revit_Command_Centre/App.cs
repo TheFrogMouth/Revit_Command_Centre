@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Windows.Interop;
-using System.Windows.Media;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -29,13 +28,6 @@ namespace Revit_Command_Centre
             try
             {
                 Instance = this;
-
-                // Force software rendering before any WPF window is created.
-                // WPF's DirectX path causes a 0xc0000005 access violation on some AMD
-                // drivers (e.g. RX 9060 XT) when running inside Revit's GPU context.
-                // Must be set at process level here, before any HWND exists.
-                RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
-
                 _showEvent = ExternalEvent.Create(_handler);
 
                 app.CreateRibbonTab(TabName);
@@ -89,16 +81,10 @@ namespace Revit_Command_Centre
                     _window = new MainWindow(app);
                     _window.Closed += (_, _) => _window = null;
 
-                    // Belt-and-suspenders per-window software rendering.
-                    // RenderMode must be set before Owner to avoid triggering DirectX init.
-                    var helper = new WindowInteropHelper(_window);
-                    helper.EnsureHandle();
-
-                    var hwndSource = HwndSource.FromHwnd(helper.Handle);
-                    if (hwndSource?.CompositionTarget != null)
-                        hwndSource.CompositionTarget.RenderMode = RenderMode.SoftwareOnly;
-
-                    helper.Owner = app.MainWindowHandle;
+                    // Revit already sets ProcessRenderMode = SoftwareOnly at startup.
+                    // Setting it again per-HWND caused a 0xc0000005 crash (double-init
+                    // of the WPF software renderer). Just set Owner and show.
+                    new WindowInteropHelper(_window).Owner = app.MainWindowHandle;
 
                     _window.Show();
                 }
