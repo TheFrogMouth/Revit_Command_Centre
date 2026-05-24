@@ -33,6 +33,10 @@ namespace Revit_Command_Centre.Services
         public static string GenerateFamily(UIApplication app, string templateType, double widthMm,
             double heightMm, string name, string savePath, List<BimParameter> parameters)
         {
+            if (app == null)
+                throw new InvalidOperationException(
+                    "No Revit connection. Click the BIM Command Centre ribbon button to activate the panel first.");
+
             string templateFile = ResolveTemplatePath(app, templateType);
 
             Document familyDoc = app.Application.NewFamilyDocument(templateFile)
