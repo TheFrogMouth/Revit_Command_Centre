@@ -55,23 +55,13 @@
                 <!-- Language -->
                 <StackPanel Grid.Column="2" Grid.Row="2">
                     <TextBlock Text="LANGUAGE" Style="{StaticResource LabelStyle}"/>
-                    <ComboBox x:Name="CmbLanguage" Style="{StaticResource ComboBoxStyle}"
-                              SelectionChanged="Preview_Changed">
-                        <ComboBoxItem Content="English" IsSelected="True"/>
-                        <ComboBoxItem Content="Nederlands"/>
-                        <ComboBoxItem Content="Français"/>
-                    </ComboBox>
+                    <StackPanel x:Name="CmbLanguage"/>
                 </StackPanel>
 
                 <!-- Title block -->
                 <StackPanel Grid.Column="0" Grid.Row="4">
                     <TextBlock Text="TITLE BLOCK" Style="{StaticResource LabelStyle}"/>
-                    <ComboBox x:Name="CmbTitleBlock" Style="{StaticResource ComboBoxStyle}"
-                              SelectionChanged="Preview_Changed">
-                        <ComboBoxItem Content="Standard A1" IsSelected="True"/>
-                        <ComboBoxItem Content="Standard A3"/>
-                        <ComboBoxItem Content="Custom"/>
-                    </ComboBox>
+                    <StackPanel x:Name="CmbTitleBlock"/>
                 </StackPanel>
             </Grid>
         </Border>

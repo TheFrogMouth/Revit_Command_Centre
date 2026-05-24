@@ -31,13 +31,14 @@ namespace Revit_Command_Centre.Services
         /// and saves the family to <paramref name="savePath"/>.
         /// </summary>
         public static string GenerateFamily(UIApplication app, string templateType, double widthMm,
-            double heightMm, string name, string savePath, List<BimParameter> parameters)
+            double heightMm, string name, string savePath, List<BimParameter> parameters,
+            string? templateFolderOverride = null)
         {
             if (app == null)
                 throw new InvalidOperationException(
                     "No Revit connection. Click the BIM Command Centre ribbon button to activate the panel first.");
 
-            string templateFile = ResolveTemplatePath(app, templateType);
+            string templateFile = ResolveTemplatePath(app, templateType, templateFolderOverride);
 
             Document familyDoc = app.Application.NewFamilyDocument(templateFile)
                 ?? throw new InvalidOperationException(
@@ -85,23 +86,37 @@ namespace Revit_Command_Centre.Services
 
         // ──────────────────────────────────────────── helpers ────
 
-        private static string ResolveTemplatePath(UIApplication app, string templateType)
+        private static string ResolveTemplatePath(UIApplication app, string templateType, string? folderOverride)
         {
             if (!TemplateMap.TryGetValue(templateType, out string? templateFileName))
                 templateFileName = "Generic Model.rft";
 
-            string templatesRoot = app.Application.FamilyTemplatePath;
+            // User-specified folder: use directly, no English-subfolder logic.
+            if (!string.IsNullOrEmpty(folderOverride))
+            {
+                string overridePath = Path.Combine(folderOverride, templateFileName);
+                if (!File.Exists(overridePath))
+                    throw new FileNotFoundException(
+                        $"Template '{templateFileName}' not found in configured folder:\n{folderOverride}\n\nCheck Options → Template Folder.", overridePath);
+                return overridePath;
+            }
+
+            // Fall back to Revit's configured path, trying with and without an English subfolder.
+            string templatesRoot = app.Application.FamilyTemplatePath ?? string.Empty;
             if (string.IsNullOrEmpty(templatesRoot))
                 throw new InvalidOperationException(
-                    "Revit FamilyTemplatePath is not set. Check Options → File Locations in Revit.");
+                    "Revit FamilyTemplatePath is not set.\nSet a Template Folder in the panel or check Options → File Locations in Revit.");
 
-            string templatePath  = Path.Combine(templatesRoot, "English", templateFileName);
-
+            // Try subfolder first (Revit installs often return the root, not the language subfolder).
+            string templatePath = Path.Combine(templatesRoot, "English", templateFileName);
             if (!File.Exists(templatePath))
                 templatePath = Path.Combine(templatesRoot, templateFileName);
 
             if (!File.Exists(templatePath))
-                throw new FileNotFoundException($"Template '{templateFileName}' not found under {templatesRoot}.", templatePath);
+                throw new FileNotFoundException(
+                    $"Template '{templateFileName}' not found.\n" +
+                    $"Revit template path: {templatesRoot}\n\n" +
+                    "Browse to your .rft template folder using the Template Folder field.", templatePath);
 
             return templatePath;
         }

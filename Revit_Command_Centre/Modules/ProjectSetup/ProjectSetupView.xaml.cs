@@ -1,12 +1,12 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
-using WpfComboBox = System.Windows.Controls.ComboBox;
 using System.Windows.Input;
 using System.Windows.Media;
 using Autodesk.Revit.UI;
 using Revit_Command_Centre.Models;
 using Revit_Command_Centre.Services;
+using Revit_Command_Centre.UI;
 
 namespace Revit_Command_Centre.Modules.ProjectSetup
 {
@@ -19,14 +19,21 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
         private readonly UIApplication _uiApp;
         private int _selectedTier = 2;
 
-        // Tier labels used in preview and config
+        private readonly Picker _language  = new(new[] { "English", "Nederlands", "Français" });
+        private readonly Picker _titleBlock = new(new[] { "Standard A1", "Standard A3", "Custom" });
+
         private static readonly string[] TierLabels = { "", "Tier 1 — Standard", "Tier 2 — BIM Compliant", "Tier 3 — ISO 19650 Full" };
 
         public ProjectSetupView(UIApplication uiApp)
         {
             _uiApp = uiApp;
             InitializeComponent();
-            Loaded += (_, _) => UpdatePreview();
+            Loaded += (_, _) =>
+            {
+                PickerHelper.Refresh(CmbLanguage,   _language,   UpdatePreview);
+                PickerHelper.Refresh(CmbTitleBlock, _titleBlock, UpdatePreview);
+                UpdatePreview();
+            };
         }
 
         // ──────────────────────────────────────  tier card selection  ──────────────────────────────
@@ -57,15 +64,14 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
 
         // ──────────────────────────────────────  live preview  ────────────────────────────────────
 
-        /// <summary>Updates the read-only title block preview panel as fields change.</summary>
-        private void Preview_Changed(object sender, RoutedEventArgs e) => UpdatePreview();
+        private void Preview_Changed(object sender, System.Windows.Controls.TextChangedEventArgs e) => UpdatePreview();
 
         private void UpdatePreview()
         {
-            PreviewClient.Text   = string.IsNullOrWhiteSpace(TxtClientName.Text)   ? "—" : TxtClientName.Text;
-            PreviewProject.Text  = string.IsNullOrWhiteSpace(TxtProjectName.Text)  ? "—" : TxtProjectName.Text;
+            PreviewClient.Text   = string.IsNullOrWhiteSpace(TxtClientName.Text)    ? "—" : TxtClientName.Text;
+            PreviewProject.Text  = string.IsNullOrWhiteSpace(TxtProjectName.Text)   ? "—" : TxtProjectName.Text;
             PreviewNumber.Text   = string.IsNullOrWhiteSpace(TxtProjectNumber.Text) ? "—" : TxtProjectNumber.Text;
-            PreviewLanguage.Text = (CmbLanguage.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "English";
+            PreviewLanguage.Text = _language.Value;
             PreviewTier.Text     = TierLabels[_selectedTier];
         }
 
@@ -81,43 +87,40 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
             TxtProjectName.Text   = config.ProjectName;
             TxtProjectNumber.Text = config.ProjectNumber;
 
-            SetComboByContent(CmbLanguage,    config.Language);
-            SetComboByContent(CmbTitleBlock,  config.TitleBlock);
+            SetPickerByValue(_language,   CmbLanguage,   config.Language,    "English");
+            SetPickerByValue(_titleBlock, CmbTitleBlock, config.TitleBlock,   "Standard A1");
 
             _selectedTier = Math.Clamp(config.ComplianceTier, 1, 3);
             ApplyTierStyles();
             UpdatePreview();
         }
 
-        /// <summary>
-        /// Builds a <see cref="ProjectConfig"/> from the current form state.
-        /// Called by the main window's "Save &amp; apply" action.
-        /// </summary>
         public ProjectConfig BuildConfig() => new ProjectConfig
         {
             ClientName      = TxtClientName.Text.Trim(),
             ProjectName     = TxtProjectName.Text.Trim(),
             ProjectNumber   = TxtProjectNumber.Text.Trim(),
-            Language        = (CmbLanguage.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "English",
-            TitleBlock      = (CmbTitleBlock.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "Standard A1",
+            Language        = _language.Value,
+            TitleBlock      = _titleBlock.Value,
             ComplianceTier  = _selectedTier,
             IfcSchema       = _selectedTier >= 2 ? "IFC4" : string.Empty,
             CobieEnabled    = _selectedTier >= 3,
             LastModified    = DateTime.UtcNow
         };
 
-        // ──────────────────────────────────────  helpers  ─────────────────────────────────────────
-
-        private static void SetComboByContent(WpfComboBox combo, string value)
+        private void SetPickerByValue(Picker picker, StackPanel panel, string value, string fallback)
         {
-            foreach (ComboBoxItem item in combo.Items)
+            for (int i = 0; i < picker.Options.Length; i++)
             {
-                if (item.Content?.ToString()?.Equals(value, StringComparison.OrdinalIgnoreCase) == true)
+                if (picker.Options[i].Equals(value, StringComparison.OrdinalIgnoreCase))
                 {
-                    combo.SelectedItem = item;
+                    picker.Index = i;
+                    PickerHelper.Refresh(panel, picker, UpdatePreview);
                     return;
                 }
             }
+            picker.Index = 0;
+            PickerHelper.Refresh(panel, picker, UpdatePreview);
         }
     }
 }
