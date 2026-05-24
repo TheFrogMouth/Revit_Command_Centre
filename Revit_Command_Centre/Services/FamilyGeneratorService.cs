@@ -33,11 +33,19 @@ namespace Revit_Command_Centre.Services
         public static string GenerateFamily(UIApplication app, string templateType, double widthMm,
             double heightMm, string name, string savePath, List<BimParameter> parameters)
         {
+            if (app == null)
+                throw new InvalidOperationException(
+                    "No Revit connection. Click the BIM Command Centre ribbon button to activate the panel first.");
+
             string templateFile = ResolveTemplatePath(app, templateType);
 
-            Document familyDoc = app.Application.NewFamilyDocument(templateFile);
+            Document familyDoc = app.Application.NewFamilyDocument(templateFile)
+                ?? throw new InvalidOperationException(
+                    $"Revit returned null for template '{Path.GetFileName(templateFile)}'. " +
+                    "Ensure a project is open and Revit is in a ready state.");
+
             if (!familyDoc.IsFamilyDocument)
-                throw new InvalidOperationException("Failed to create a new family document from the template.");
+                throw new InvalidOperationException("The document created from the template is not a family document.");
 
             using (Transaction t = new Transaction(familyDoc, "Set Default Parameters"))
             {
@@ -83,6 +91,10 @@ namespace Revit_Command_Centre.Services
                 templateFileName = "Generic Model.rft";
 
             string templatesRoot = app.Application.FamilyTemplatePath;
+            if (string.IsNullOrEmpty(templatesRoot))
+                throw new InvalidOperationException(
+                    "Revit FamilyTemplatePath is not set. Check Options → File Locations in Revit.");
+
             string templatePath  = Path.Combine(templatesRoot, "English", templateFileName);
 
             if (!File.Exists(templatePath))

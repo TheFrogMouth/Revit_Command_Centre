@@ -59,6 +59,9 @@
     </Style>
 
     <!-- ══════════════════════  INPUT CONTROLS  ══════════════════════ -->
+    <!-- No ControlTemplates or Triggers anywhere in this file — they crash in Revit's
+         rendering context on this AMD GPU. Plain property setters only. -->
+
     <Style x:Key="TextBoxStyle" TargetType="TextBox">
         <Setter Property="FontFamily"       Value="{StaticResource AppFont}"/>
         <Setter Property="FontSize"         Value="12"/>
@@ -69,11 +72,6 @@
         <Setter Property="Padding"          Value="8,6"/>
         <Setter Property="Height"           Value="32"/>
         <Setter Property="VerticalContentAlignment" Value="Center"/>
-        <Style.Triggers>
-            <Trigger Property="IsFocused" Value="True">
-                <Setter Property="BorderBrush" Value="{StaticResource PrimaryBlueBrush}"/>
-            </Trigger>
-        </Style.Triggers>
     </Style>
 
     <Style x:Key="ComboBoxStyle" TargetType="ComboBox">
@@ -87,86 +85,6 @@
         <Setter Property="Height"          Value="32"/>
     </Style>
 
-    <!-- ══════════════════════  SIDEBAR NAVIGATION  ══════════════════════ -->
-    <Style x:Key="NavButtonStyle" TargetType="Button">
-        <Setter Property="FontFamily"        Value="{StaticResource AppFont}"/>
-        <Setter Property="FontSize"          Value="12"/>
-        <Setter Property="FontWeight"        Value="Normal"/>
-        <Setter Property="Foreground"        Value="{StaticResource TextSecondaryBrush}"/>
-        <Setter Property="Background"        Value="Transparent"/>
-        <Setter Property="BorderThickness"   Value="0"/>
-        <Setter Property="HorizontalContentAlignment" Value="Left"/>
-        <Setter Property="Padding"           Value="16,0,12,0"/>
-        <Setter Property="Height"            Value="36"/>
-        <Setter Property="Cursor"            Value="Hand"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                            BorderThickness="3,0,0,0" BorderBrush="Transparent">
-                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalAlignment="Center"
-                                          Margin="{TemplateBinding Padding}"/>
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#F0F0F0"/>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <Style x:Key="NavButtonActiveStyle" TargetType="Button" BasedOn="{StaticResource NavButtonStyle}">
-        <Setter Property="FontWeight"  Value="Medium"/>
-        <Setter Property="Foreground"  Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="Background"  Value="White"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Border Background="{TemplateBinding Background}"
-                            BorderThickness="3,0,0,0" BorderBrush="{StaticResource PrimaryBlueBrush}">
-                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalAlignment="Center"
-                                          Margin="{TemplateBinding Padding}"/>
-                    </Border>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <!-- ══════════════════════  ACTION BUTTONS  ══════════════════════ -->
-    <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-        <Setter Property="FontFamily"      Value="{StaticResource AppFont}"/>
-        <Setter Property="FontSize"        Value="12"/>
-        <Setter Property="FontWeight"      Value="Medium"/>
-        <Setter Property="Foreground"      Value="White"/>
-        <Setter Property="Background"      Value="{StaticResource PrimaryBlueBrush}"/>
-        <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Padding"         Value="14,0"/>
-        <Setter Property="Height"          Value="32"/>
-        <Setter Property="Cursor"          Value="Hand"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Border Background="{TemplateBinding Background}" CornerRadius="4"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#1450A0"/>
-                        </Trigger>
-                        <Trigger Property="IsPressed" Value="True">
-                            <Setter Property="Background" Value="#0F3E80"/>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
     <Style x:Key="SecondaryButtonStyle" TargetType="Button">
         <Setter Property="FontFamily"      Value="{StaticResource AppFont}"/>
         <Setter Property="FontSize"        Value="12"/>
@@ -178,23 +96,6 @@
         <Setter Property="Padding"         Value="14,0"/>
         <Setter Property="Height"          Value="32"/>
         <Setter Property="Cursor"          Value="Hand"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Border Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="4" Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter Property="Background" Value="#F4F4F4"/>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
     </Style>
 
     <!-- ══════════════════════  CARD / TILE  ══════════════════════ -->

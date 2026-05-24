@@ -39,7 +39,8 @@ namespace Revit_Command_Centre
                 string assemblyPath = typeof(App).Assembly.Location;
                 panel.AddItem(new PushButtonData(ButtonName, ButtonText, assemblyPath, CommandClass)
                 {
-                    ToolTip = ButtonTooltip
+                    ToolTip = ButtonTooltip,
+                    AvailabilityClassName = "Revit_Command_Centre.LaunchCommandAvailability"
                 });
 
                 return Result.Succeeded;

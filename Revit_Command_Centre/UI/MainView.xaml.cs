@@ -340,25 +340,42 @@ namespace Revit_Command_Centre.UI
 
         private UIElement CreateProjectSetupView()
         {
+            if (_uiApp == null) return NotActivatedPlaceholder();
             AddTopbarButton("Load from file", isSecondary: true,  onClick: ProjectSetup_LoadFromFile);
             AddTopbarButton("Save & apply",   isSecondary: false, onClick: ProjectSetup_SaveAndApply);
-            return new ProjectSetupView(UiApp!);
+            return new ProjectSetupView(_uiApp);
         }
 
-        private UIElement CreateSheetsView() => new SheetsView(UiApp!);
+        private UIElement CreateSheetsView()
+        {
+            if (_uiApp == null) return NotActivatedPlaceholder();
+            return new SheetsView(_uiApp);
+        }
 
         private UIElement CreateUpdateFamiliesView()
         {
+            if (_uiApp == null) return NotActivatedPlaceholder();
             AddTopbarButton("Validate only", isSecondary: true,  onClick: UpdateFamilies_Validate);
             AddTopbarButton("Run",           isSecondary: false, onClick: UpdateFamilies_Run);
-            return new UpdateFamiliesView(UiApp!);
+            return new UpdateFamiliesView(_uiApp);
         }
 
         private UIElement CreateCreateFamiliesView()
         {
+            if (_uiApp == null) return NotActivatedPlaceholder();
             AddTopbarButton("Generate", isSecondary: false, onClick: CreateFamilies_Generate);
-            return new CreateFamiliesView(UiApp!);
+            return new CreateFamiliesView(_uiApp);
         }
+
+        private TextBlock NotActivatedPlaceholder() => new()
+        {
+            Text         = "Click the BIM Command Centre ribbon button to connect to Revit.",
+            FontFamily   = AppFont,
+            FontSize     = 12,
+            Foreground   = TextSecondary,
+            Margin       = new Thickness(20),
+            TextWrapping = TextWrapping.Wrap
+        };
 
         // ── topbar helpers ────────────────────────────────────────────────────
 

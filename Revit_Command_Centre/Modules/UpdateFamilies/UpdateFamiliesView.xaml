@@ -17,21 +17,89 @@
     <StackPanel Margin="20,16,20,24">
 
         <!-- ── DROP ZONE ── -->
-        <Border x:Name="DropZoneBorder" Height="110" CornerRadius="8"
+        <Border x:Name="DropZoneBorder" Height="90" CornerRadius="8"
                 BorderBrush="{StaticResource PrimaryBlueBrush}" BorderThickness="2"
                 Background="{StaticResource LightBlueBgBrush}"
                 Margin="0,0,0,14" Cursor="Hand"
                 MouseLeftButtonUp="DropZone_Click">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                <TextBlock Text="&#x2913;" FontSize="28" HorizontalAlignment="Center"
+                <TextBlock Text="⬇" FontSize="22" HorizontalAlignment="Center"
                            Foreground="{StaticResource PrimaryBlueBrush}"/>
-                <TextBlock Text="Drop a folder of .rfa files here, or click to browse"
+                <TextBlock Text="Drop .rfa files or a folder here, or click to browse"
                            FontSize="12" Foreground="{StaticResource PrimaryBlueBrush}"
-                           Margin="0,6,0,0" HorizontalAlignment="Center"/>
-                <TextBlock x:Name="TxtSelectedFolder" Text=""
-                           FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
-                           Margin="0,4,0,0" HorizontalAlignment="Center"
-                           TextTrimming="CharacterEllipsis" MaxWidth="380"/>
+                           Margin="0,4,0,0" HorizontalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ── OUTPUT SETTINGS ── -->
+        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Output folder row -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="OUTPUT FOLDER" Style="{StaticResource LabelStyle}"/>
+                        <TextBox x:Name="TxtOutputFolder" Style="{StaticResource TextBoxStyle}"
+                                 IsReadOnly="True" Cursor="Hand"
+                                 MouseLeftButtonUp="OutputFolder_Click"
+                                 Text="Same as source file"/>
+                    </StackPanel>
+                    <Button Grid.Column="2" Content="Browse" Margin="0,18,0,0"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Click="OutputFolder_Click"/>
+                </Grid>
+
+                <!-- Name prefix row -->
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="NAME PREFIX" Style="{StaticResource LabelStyle}"/>
+                        <TextBox x:Name="TxtNamePrefix" Style="{StaticResource TextBoxStyle}"
+                                 ToolTip="Prepended to filename: PREFIX_OriginalName.rfa  (leave blank to keep original name)"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
+                        <TextBlock x:Name="TxtNamePreview"
+                                   FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
+                                   FontStyle="Italic" Margin="0,0,0,6"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ── FILE LIST ── -->
+        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+            <StackPanel>
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="FILES TO PROCESS" Style="{StaticResource LabelStyle}" Margin="0"/>
+                    <Button Grid.Column="1" x:Name="BtnClearFiles" Content="Clear"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Click="ClearFiles_Click" Padding="10,0" Height="24" FontSize="11"/>
+                </Grid>
+                <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="FileListPanel">
+                        <TextBlock x:Name="TxtNoFiles" Text="No files selected"
+                                   FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
+                                   Margin="0,4,0,4"/>
+                    </StackPanel>
+                </ScrollViewer>
             </StackPanel>
         </Border>
 
@@ -43,7 +111,6 @@
                     <ColumnDefinition Width="12"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="CATEGORY FILTER" Style="{StaticResource LabelStyle}"/>
                     <ComboBox x:Name="CmbCategoryFilter" Style="{StaticResource ComboBoxStyle}">
@@ -53,7 +120,6 @@
                         <ComboBoxItem Content="MEP"/>
                     </ComboBox>
                 </StackPanel>
-
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="APPLY PARAMETERS" Style="{StaticResource LabelStyle}"/>
                     <ComboBox x:Name="CmbParameterFilter" Style="{StaticResource ComboBoxStyle}">
@@ -97,7 +163,6 @@
                 <ColumnDefinition Width="8"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-
             <Border Grid.Column="0" Style="{StaticResource StatCardStyle}">
                 <StackPanel>
                     <TextBlock x:Name="StatTotal" Text="0" FontSize="22" FontWeight="SemiBold"
@@ -106,7 +171,6 @@
                                HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
-
             <Border Grid.Column="2" Style="{StaticResource StatCardStyle}">
                 <StackPanel>
                     <TextBlock x:Name="StatUpdated" Text="0" FontSize="22" FontWeight="SemiBold"
@@ -115,7 +179,6 @@
                                HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
-
             <Border Grid.Column="4" Style="{StaticResource StatCardStyle}">
                 <StackPanel>
                     <TextBlock x:Name="StatSkipped" Text="0" FontSize="22" FontWeight="SemiBold"
@@ -124,7 +187,6 @@
                                HorizontalAlignment="Center"/>
                 </StackPanel>
             </Border>
-
             <Border Grid.Column="6" Style="{StaticResource StatCardStyle}">
                 <StackPanel>
                     <TextBlock x:Name="StatErrors" Text="0" FontSize="22" FontWeight="SemiBold"
@@ -135,10 +197,10 @@
             </Border>
         </Grid>
 
-        <!-- ── LOG PANEL ── -->
+        <!-- ── LOG ── -->
         <TextBlock Text="LOG" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,8"/>
-        <Border Style="{StaticResource CardStyle}" MinHeight="140">
-            <ScrollViewer x:Name="LogScrollViewer" VerticalScrollBarVisibility="Auto" MaxHeight="240">
+        <Border Style="{StaticResource CardStyle}" MinHeight="100">
+            <ScrollViewer x:Name="LogScrollViewer" VerticalScrollBarVisibility="Auto" MaxHeight="200">
                 <StackPanel x:Name="LogPanel"/>
             </ScrollViewer>
         </Border>
