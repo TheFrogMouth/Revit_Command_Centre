@@ -6,8 +6,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using Autodesk.Revit.UI;
-using RevitDoc         = Autodesk.Revit.DB.Document;
-using RevitTransaction = Autodesk.Revit.DB.Transaction;
 using Revit_Command_Centre.Models;
 using Revit_Command_Centre.Modules.CreateFamilies;
 using Revit_Command_Centre.Modules.ProjectSetup;
@@ -439,42 +437,11 @@ namespace Revit_Command_Centre.UI
         private void ProjectSetup_SaveAndApply(object sender, RoutedEventArgs e)
         {
             if (_contentArea.Content is not ProjectSetupView psv) return;
+            if (App.ApplyConfigHandler == null || App.ApplyConfigEvent == null) return;
 
-            try
-            {
-                ProjectConfig config = psv.BuildConfig();
-                RevitDoc? doc = _uiApp?.ActiveUIDocument?.Document;
-
-                if (doc != null && !doc.IsReadOnly)
-                {
-                    using var tx = new RevitTransaction(doc, "Apply BIM project config");
-                    tx.Start();
-                    doc.ProjectInformation.Name       = config.ProjectName;
-                    doc.ProjectInformation.Number     = config.ProjectNumber;
-                    doc.ProjectInformation.ClientName = config.ClientName;
-                    ExtensibleStorageService.WriteConfig(doc, config);
-                    tx.Commit();
-
-                    if (!string.IsNullOrEmpty(_cachedDocPath))
-                        ConfigService.SaveConfig(config, _cachedDocPath);
-
-                    MessageBox.Show("Project information updated in Revit and config saved.", "BIM Command Centre",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                else
-                {
-                    MessageBox.Show(
-                        doc == null
-                            ? "No project is open. Open a Revit project and try again."
-                            : "The active document is read-only and cannot be modified.",
-                        "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to apply config:\n{ex.Message}", "BIM Command Centre",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            App.ApplyConfigHandler.PendingConfig = psv.BuildConfig();
+            App.ApplyConfigHandler.RvtFilePath   = _cachedDocPath;
+            App.ApplyConfigEvent.Raise();
         }
 
         private void UpdateFamilies_Validate(object sender, RoutedEventArgs e)
