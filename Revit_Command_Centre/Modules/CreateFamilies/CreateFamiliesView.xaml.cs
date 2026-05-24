@@ -58,6 +58,12 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
             InitializeComponent();
             Loaded += (_, _) =>
             {
+                var settings = AppSettingsService.Load();
+                if (!string.IsNullOrEmpty(settings.FamilyTemplateFolder))
+                    TxtTemplateFolder.Text = settings.FamilyTemplateFolder;
+                if (!string.IsNullOrEmpty(settings.DefaultFamilyOutputFolder))
+                    TxtSaveFolder.Text = settings.DefaultFamilyOutputFolder;
+
                 BuildTemplateCards();
                 UpdateHint();
             };
@@ -153,14 +159,35 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
             TxtHint.Text = $"Family will be named per project convention and saved with {ConfigService.GetDefaultParameters(tier).Count} shared parameters pre-loaded from your Tier {tier} config.";
         }
 
-        // ──────────────────────────────────────  folder picker  ───────────────────────────────────
+        // ──────────────────────────────────────  folder pickers  ──────────────────────────────────
 
         private void BrowseFolder_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Select save folder" };
-            if (dlg.ShowDialog() == true)
-                TxtSaveFolder.Text = dlg.FolderName;
+            if (dlg.ShowDialog() != true) return;
+            TxtSaveFolder.Text = dlg.FolderName;
+
+            var settings = AppSettingsService.Load();
+            settings.DefaultFamilyOutputFolder = dlg.FolderName;
+            AppSettingsService.Save(settings);
         }
+
+        private void BrowseTemplateFolder_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new Microsoft.Win32.OpenFolderDialog
+            {
+                Title = "Select folder containing Revit .rft template files"
+            };
+            if (dlg.ShowDialog() != true) return;
+            TxtTemplateFolder.Text = dlg.FolderName;
+
+            var settings = AppSettingsService.Load();
+            settings.FamilyTemplateFolder = dlg.FolderName;
+            AppSettingsService.Save(settings);
+        }
+
+        private void BrowseTemplateFolder_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+            => BrowseTemplateFolder_Click(sender, (RoutedEventArgs)e);
 
         // ──────────────────────────────────────  generate (called by MainWindow)  ─────────────────
 
@@ -193,6 +220,9 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
 
             try
             {
+                string? templateFolder = string.IsNullOrWhiteSpace(TxtTemplateFolder.Text)
+                    ? null : TxtTemplateFolder.Text.Trim();
+
                 string outputPath = FamilyGeneratorService.GenerateFamily(
                     _uiApp,
                     _selectedTemplate,
@@ -200,7 +230,8 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
                     height,
                     name,
                     TxtSaveFolder.Text,
-                    parameters);
+                    parameters,
+                    templateFolder);
 
                 MessageBox.Show($"Family created successfully:\n{outputPath}", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
             }

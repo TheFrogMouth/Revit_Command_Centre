@@ -13,6 +13,27 @@
 
     <StackPanel Margin="20,16,20,24">
 
+        <!-- ── TEMPLATE FOLDER ── -->
+        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="TEMPLATE FOLDER" Style="{StaticResource LabelStyle}"/>
+                    <TextBox x:Name="TxtTemplateFolder" Style="{StaticResource TextBoxStyle}"
+                             IsReadOnly="True" Cursor="Hand"
+                             MouseLeftButtonUp="BrowseTemplateFolder_Click"
+                             ToolTip="Folder containing Revit .rft template files. Leave blank to use Revit's default path."/>
+                </StackPanel>
+                <Button Grid.Column="2" Content="Browse…" Margin="0,18,0,0"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="BrowseTemplateFolder_Click"/>
+            </Grid>
+        </Border>
+
         <!-- ── TEMPLATE PICKER ── -->
         <TextBlock Text="FAMILY TEMPLATE" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,10"/>
 
