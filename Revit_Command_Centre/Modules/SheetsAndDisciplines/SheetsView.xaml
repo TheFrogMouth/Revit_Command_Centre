@@ -36,33 +36,20 @@
                 <!-- Format -->
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="FORMAT" Style="{StaticResource LabelStyle}"/>
-                    <ComboBox x:Name="CmbFormat" Style="{StaticResource ComboBoxStyle}"
-                              SelectionChanged="NamingOption_Changed">
-                        <ComboBoxItem Content="[Disc]-[Floor]-[Number]" IsSelected="True"/>
-                        <ComboBoxItem Content="[Disc][Number]"/>
-                        <ComboBoxItem Content="Custom"/>
-                    </ComboBox>
+                    <!-- Picker built in code-behind — no WPF ComboBox ControlTemplate -->
+                    <StackPanel x:Name="CmbFormat"/>
                 </StackPanel>
 
                 <!-- Number padding -->
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="NUMBER PADDING" Style="{StaticResource LabelStyle}"/>
-                    <ComboBox x:Name="CmbPadding" Style="{StaticResource ComboBoxStyle}"
-                              SelectionChanged="NamingOption_Changed">
-                        <ComboBoxItem Content="2 digits"/>
-                        <ComboBoxItem Content="3 digits" IsSelected="True"/>
-                    </ComboBox>
+                    <StackPanel x:Name="CmbPadding"/>
                 </StackPanel>
 
                 <!-- Separator -->
                 <StackPanel Grid.Column="4">
                     <TextBlock Text="SEPARATOR" Style="{StaticResource LabelStyle}"/>
-                    <ComboBox x:Name="CmbSeparator" Style="{StaticResource ComboBoxStyle}"
-                              SelectionChanged="NamingOption_Changed">
-                        <ComboBoxItem Content="Dash" IsSelected="True"/>
-                        <ComboBoxItem Content="Dot"/>
-                        <ComboBoxItem Content="None"/>
-                    </ComboBox>
+                    <StackPanel x:Name="CmbSeparator"/>
                 </StackPanel>
             </Grid>
         </Border>
