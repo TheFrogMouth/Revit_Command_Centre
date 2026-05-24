@@ -12,11 +12,14 @@ namespace Revit_Command_Centre
         {
             try
             {
-                // Store UIApplication so the dockable pane can read doc info in its Loaded handler.
-                App.CurrentUIApp = commandData.Application;
-
                 DockablePane pane = commandData.Application.GetDockablePane(App.PaneId);
                 pane.Show();
+
+                // Activate is called AFTER pane.Show() — this is the first safe moment to
+                // touch the Revit API and instantiate module views. The pane constructor and
+                // Loaded handler deliberately do nothing with Revit to avoid crashing during
+                // document loading, when Revit constructs the pane on its worker thread.
+                App.PaneProvider?.View?.Activate(commandData.Application);
 
                 return Result.Succeeded;
             }

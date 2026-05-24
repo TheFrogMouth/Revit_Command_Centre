@@ -10,9 +10,12 @@ namespace Revit_Command_Centre.Services
     /// </summary>
     public sealed class MainViewPaneProvider : IDockablePaneProvider
     {
+        public MainView? View { get; private set; }
+
         public void SetupDockablePane(DockablePaneProviderData data)
         {
-            data.FrameworkElement = new MainView();
+            View = new MainView();
+            data.FrameworkElement = View;
         }
     }
 }
