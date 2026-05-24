@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Revit_Command_Centre.Models;
 using Revit_Command_Centre.Modules.CreateFamilies;
@@ -441,14 +442,36 @@ namespace Revit_Command_Centre.UI
             try
             {
                 ProjectConfig config = psv.BuildConfig();
-                if (!string.IsNullOrEmpty(_cachedDocPath))
-                    ConfigService.SaveConfig(config, _cachedDocPath);
-                MessageBox.Show("Config saved successfully.", "BIM Command Centre",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                Document? doc = _uiApp?.ActiveUIDocument?.Document;
+
+                if (doc != null && !doc.IsReadOnly)
+                {
+                    using var tx = new Transaction(doc, "Apply BIM project config");
+                    tx.Start();
+                    doc.ProjectInformation.Name       = config.ProjectName;
+                    doc.ProjectInformation.Number     = config.ProjectNumber;
+                    doc.ProjectInformation.ClientName = config.ClientName;
+                    ExtensibleStorageService.WriteConfig(doc, config);
+                    tx.Commit();
+
+                    if (!string.IsNullOrEmpty(_cachedDocPath))
+                        ConfigService.SaveConfig(config, _cachedDocPath);
+
+                    MessageBox.Show("Project information updated in Revit and config saved.", "BIM Command Centre",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show(
+                        doc == null
+                            ? "No project is open. Open a Revit project and try again."
+                            : "The active document is read-only and cannot be modified.",
+                        "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to save config:\n{ex.Message}", "BIM Command Centre",
+                MessageBox.Show($"Failed to apply config:\n{ex.Message}", "BIM Command Centre",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
