@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using Autodesk.Revit.UI;
 using Revit_Command_Centre.Models;
@@ -10,32 +11,46 @@ using Revit_Command_Centre.Services;
 
 namespace Revit_Command_Centre.Modules.UpdateFamilies
 {
-    /// <summary>
-    /// Code-behind for the Update Families module.
-    /// Manages drag-and-drop folder selection, batch processing with progress reporting,
-    /// stats counters, and a colour-coded log panel.
-    /// </summary>
     public partial class UpdateFamiliesView : UserControl
     {
         private readonly UIApplication _uiApp;
-        private string _selectedFolder = string.Empty;
+        private readonly List<string> _selectedFiles = new();
+        private string _outputFolder = string.Empty;
 
-        // Running counters reset on each Run
         private int _total, _updated, _skipped, _errors;
+
+        private static readonly SolidColorBrush BrushInfo    = new(Color.FromRgb(0x18, 0x5F, 0xA5));
+        private static readonly SolidColorBrush BrushSuccess = new(Color.FromRgb(0x1D, 0x9E, 0x75));
+        private static readonly SolidColorBrush BrushWarn    = new(Color.FromRgb(0xBA, 0x75, 0x17));
+        private static readonly SolidColorBrush BrushError   = new(Color.FromRgb(0xE2, 0x4B, 0x4A));
+        private static readonly FontFamily      ConsolasFont = new("Consolas");
+
+        static UpdateFamiliesView()
+        {
+            BrushInfo.Freeze();
+            BrushSuccess.Freeze();
+            BrushWarn.Freeze();
+            BrushError.Freeze();
+        }
 
         public UpdateFamiliesView(UIApplication uiApp)
         {
             _uiApp = uiApp;
             InitializeComponent();
+
+            var saved = AppSettingsService.Load();
+            if (!string.IsNullOrEmpty(saved.DefaultFamilyOutputFolder))
+            {
+                _outputFolder = saved.DefaultFamilyOutputFolder;
+                TxtOutputFolder.Text = _outputFolder;
+            }
+
+            TxtNamePrefix.TextChanged += (_, __) => RefreshFileList();
         }
 
-        // ──────────────────────────────────────  drop zone  ───────────────────────────────────────
+        // ── drop zone ─────────────────────────────────────────────────────────────────────────────
 
-        /// <summary>Called when user clicks the drop zone to browse for a folder.</summary>
-        private void DropZone_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            SelectFolder();
-        }
+        private void DropZone_Click(object sender, MouseButtonEventArgs e) => BrowseForFiles();
 
         private void DropZone_DragOver(object sender, DragEventArgs e)
         {
@@ -46,102 +61,176 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
         private void DropZone_Drop(object sender, DragEventArgs e)
         {
             if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+            if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths || paths.Length == 0) return;
 
-            string[]? paths = e.Data.GetData(DataFormats.FileDrop) as string[];
-            if (paths == null || paths.Length == 0) return;
+            var added = new List<string>();
+            foreach (string path in paths)
+            {
+                if (Directory.Exists(path))
+                    added.AddRange(Directory.GetFiles(path, "*.rfa", SearchOption.AllDirectories));
+                else if (File.Exists(path) && path.EndsWith(".rfa", StringComparison.OrdinalIgnoreCase))
+                    added.Add(path);
+            }
 
-            string dropped = paths[0];
-            if (Directory.Exists(dropped))
-                SetFolder(dropped);
-            else if (File.Exists(dropped))
-                SetFolder(Path.GetDirectoryName(dropped) ?? string.Empty);
+            AddFiles(added);
         }
 
-        private void SelectFolder()
+        private void BrowseForFiles()
+        {
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title  = "Select .rfa family files",
+                Filter = "Revit Family Files (*.rfa)|*.rfa",
+                Multiselect = true
+            };
+            if (dlg.ShowDialog() == true)
+                AddFiles(dlg.FileNames);
+        }
+
+        // ── output folder ──────────────────────────────────────────────────────────────────────────
+
+        private void OutputFolder_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new Microsoft.Win32.OpenFolderDialog
             {
-                Title = "Select a folder containing .rfa files",
+                Title      = "Select output folder for processed families",
                 Multiselect = false
             };
-            if (dlg.ShowDialog() == true)
-                SetFolder(dlg.FolderName);
+            if (dlg.ShowDialog() != true) return;
+
+            _outputFolder = dlg.FolderName;
+            TxtOutputFolder.Text = _outputFolder;
+
+            var settings = AppSettingsService.Load();
+            settings.DefaultFamilyOutputFolder = _outputFolder;
+            AppSettingsService.Save(settings);
         }
 
-        private void SetFolder(string path)
+        private void OutputFolder_Click(object sender, MouseButtonEventArgs e)
         {
-            _selectedFolder = path;
-            TxtSelectedFolder.Text = path;
-            AppendLog($"→ Folder selected: {path}", "#185FA5");
-
-            string[] files = Directory.GetFiles(path, "*.rfa", SearchOption.AllDirectories);
-            _total = files.Length;
-            UpdateStats(0, 0, 0, _total);
+            OutputFolder_Click(sender, (RoutedEventArgs)e);
         }
 
-        // ──────────────────────────────────────  public API (called by MainWindow)  ───────────────
+        // ── file list ──────────────────────────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// Validates all .rfa files in the selected folder without modifying them.
-        /// Reports missing parameters to the log.
-        /// </summary>
+        private void AddFiles(IEnumerable<string> paths)
+        {
+            foreach (string path in paths)
+            {
+                if (!_selectedFiles.Contains(path))
+                    _selectedFiles.Add(path);
+            }
+            RefreshFileList();
+        }
+
+        private void ClearFiles_Click(object sender, RoutedEventArgs e)
+        {
+            _selectedFiles.Clear();
+            RefreshFileList();
+            ResetStats();
+        }
+
+        private void RefreshFileList()
+        {
+            FileListPanel.Children.Clear();
+            string prefix = TxtNamePrefix.Text.Trim();
+
+            if (_selectedFiles.Count == 0)
+            {
+                TxtNoFiles.Visibility = Visibility.Visible;
+                FileListPanel.Children.Add(TxtNoFiles);
+                TxtNamePreview.Text = string.Empty;
+                UpdateStats(0, 0, 0, 0);
+                return;
+            }
+
+            TxtNoFiles.Visibility = Visibility.Collapsed;
+
+            foreach (string path in _selectedFiles)
+            {
+                string original  = Path.GetFileName(path);
+                string renamed   = BuildOutputName(prefix, original);
+                string label     = string.IsNullOrEmpty(prefix) ? original : $"{original}  →  {renamed}";
+
+                var row = new TextBlock
+                {
+                    Text       = label,
+                    FontSize   = 11,
+                    Foreground = string.IsNullOrEmpty(prefix)
+                                     ? (Brush)FindResource("TextSecondaryBrush")
+                                     : BrushInfo,
+                    Padding    = new Thickness(0, 2, 0, 2),
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+                FileListPanel.Children.Add(row);
+            }
+
+            TxtNamePreview.Text = _selectedFiles.Count > 0 && !string.IsNullOrEmpty(prefix)
+                ? $"e.g. {BuildOutputName(prefix, Path.GetFileName(_selectedFiles[0]))}"
+                : string.Empty;
+
+            UpdateStats(0, 0, 0, _selectedFiles.Count);
+        }
+
+        private static string BuildOutputName(string prefix, string originalFileName)
+        {
+            if (string.IsNullOrEmpty(prefix)) return originalFileName;
+            return $"{prefix}_{originalFileName}";
+        }
+
+        // ── public API (called by MainView) ────────────────────────────────────────────────────────
+
         public void RunValidation()
         {
-            if (!EnsureFolderSelected()) return;
+            if (!EnsureFilesSelected()) return;
 
             ClearLog();
-            AppendLog("→ Validation started…", "#185FA5");
+            AppendLog("→ Validation started…", BrushInfo);
 
             List<FamilyParameter> required = GetRequiredParameters();
-            string[] files = Directory.GetFiles(_selectedFolder, "*.rfa", SearchOption.AllDirectories);
-
             int warnings = 0;
-            foreach (string file in files)
+
+            foreach (string file in _selectedFiles)
             {
                 try
                 {
                     List<string> missing = FamilyParameterService.ValidateFamily(_uiApp, file, required);
                     if (missing.Count == 0)
-                        AppendLog($"  ✓ {Path.GetFileName(file)}", "#1D9E75");
+                        AppendLog($"  ✓ {Path.GetFileName(file)}", BrushSuccess);
                     else
                     {
-                        AppendLog($"  ⚠ {Path.GetFileName(file)} — missing: {string.Join(", ", missing)}", "#BA7517");
+                        AppendLog($"  ⚠ {Path.GetFileName(file)} — missing: {string.Join(", ", missing)}", BrushWarn);
                         warnings++;
                     }
                 }
                 catch (Exception ex)
                 {
-                    AppendLog($"  ✗ {Path.GetFileName(file)} — {ex.Message}", "#E24B4A");
+                    AppendLog($"  ✗ {Path.GetFileName(file)} — {ex.Message}", BrushError);
                     _errors++;
                 }
             }
 
-            AppendLog($"→ Validation complete. {files.Length} files checked, {warnings} warnings.", "#185FA5");
+            AppendLog($"→ Validation complete. {_selectedFiles.Count} files checked, {warnings} warnings.", BrushInfo);
         }
 
-        /// <summary>
-        /// Runs the full batch process — opens each .rfa, adds missing parameters, saves.
-        /// Progress is reported on the UI thread via Dispatcher.
-        /// </summary>
         public void RunBatchProcess()
         {
-            if (!EnsureFolderSelected()) return;
+            if (!EnsureFilesSelected()) return;
 
             ClearLog();
             ResetStats();
-            AppendLog("→ Batch process started…", "#185FA5");
+            AppendLog("→ Batch process started…", BrushInfo);
 
             List<FamilyParameter> parameters = GetRequiredParameters();
-            string[] files = Directory.GetFiles(_selectedFolder, "*.rfa", SearchOption.AllDirectories);
-
-            _total = files.Length;
+            string prefix = TxtNamePrefix.Text.Trim();
+            _total = _selectedFiles.Count;
             UpdateStats(0, 0, 0, _total);
 
             int processed = 0;
-            foreach (string file in files)
+            foreach (string file in _selectedFiles)
             {
                 processed++;
-                double pct = (double)processed / _total * 100.0;
+                double pct      = (double)processed / _total * 100.0;
                 string shortName = Path.GetFileName(file);
 
                 Dispatcher.Invoke(() =>
@@ -151,15 +240,17 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
                     ProgressBar.Value   = pct;
                 });
 
+                string? outputPath = ResolveOutputPath(file, prefix);
+
                 try
                 {
-                    string result = FamilyParameterService.AddParametersToFamily(_uiApp, file, parameters);
-                    AppendLog($"  ✓ {shortName}", "#1D9E75");
+                    FamilyParameterService.AddParametersToFamily(_uiApp, file, parameters, outputPath);
+                    AppendLog($"  ✓ {shortName}{(outputPath != null ? $" → {Path.GetFileName(outputPath)}" : "")}", BrushSuccess);
                     _updated++;
                 }
                 catch (Exception ex)
                 {
-                    AppendLog($"  ✗ {shortName} — {ex.Message}", "#E24B4A");
+                    AppendLog($"  ✗ {shortName} — {ex.Message}", BrushError);
                     _errors++;
                 }
 
@@ -173,16 +264,31 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
                 ProgressBar.Value   = 100;
             });
 
-            AppendLog($"→ Batch complete. Updated: {_updated}  Skipped: {_skipped}  Errors: {_errors}", "#185FA5");
+            AppendLog($"→ Batch complete. Updated: {_updated}  Skipped: {_skipped}  Errors: {_errors}", BrushInfo);
         }
 
-        // ──────────────────────────────────────  helpers  ─────────────────────────────────────────
+        // ── helpers ───────────────────────────────────────────────────────────────────────────────
 
-        private bool EnsureFolderSelected()
+        /// <summary>
+        /// Resolves the full output path for a family file.
+        /// If no output folder and no prefix are set, returns null (save in-place).
+        /// </summary>
+        private string? ResolveOutputPath(string sourceFile, string prefix)
         {
-            if (string.IsNullOrEmpty(_selectedFolder))
+            string outDir  = !string.IsNullOrEmpty(_outputFolder) ? _outputFolder : Path.GetDirectoryName(sourceFile)!;
+            string outName = BuildOutputName(prefix, Path.GetFileName(sourceFile));
+            string outPath = Path.Combine(outDir, outName);
+
+            // if nothing changed, treat as in-place save
+            return outPath == sourceFile ? null : outPath;
+        }
+
+        private bool EnsureFilesSelected()
+        {
+            if (_selectedFiles.Count == 0)
             {
-                MessageBox.Show("Please select a folder first.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Please add .rfa files first.", "BIM Command Centre",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
                 return false;
             }
             return true;
@@ -200,16 +306,16 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             return ConfigService.GetDefaultParameters(tier);
         }
 
-        private void AppendLog(string message, string hexColour)
+        private void AppendLog(string message, SolidColorBrush colour)
         {
             Dispatcher.Invoke(() =>
             {
                 var tb = new TextBlock
                 {
                     Text       = message,
-                    FontFamily = new FontFamily("Consolas"),
+                    FontFamily = ConsolasFont,
                     FontSize   = 11,
-                    Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hexColour)),
+                    Foreground = colour,
                     Padding    = new Thickness(0, 1, 0, 1)
                 };
                 LogPanel.Children.Add(tb);

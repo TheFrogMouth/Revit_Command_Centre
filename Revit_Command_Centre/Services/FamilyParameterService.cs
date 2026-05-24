@@ -16,10 +16,12 @@ namespace Revit_Command_Centre.Services
     public static class FamilyParameterService
     {
         /// <summary>
-        /// Opens a single .rfa file, adds every parameter in <paramref name="parameters"/>
-        /// that does not already exist, then saves and closes the family document.
+        /// Opens a single .rfa, adds missing parameters, saves to <paramref name="outputPath"/>
+        /// (which may differ from the source — rename + relocate in one step), then closes.
+        /// If <paramref name="outputPath"/> is null or empty the file is saved in-place.
         /// </summary>
-        public static string AddParametersToFamily(UIApplication app, string rfaPath, List<BimParameter> parameters)
+        public static string AddParametersToFamily(UIApplication app, string rfaPath,
+            List<BimParameter> parameters, string? outputPath = null)
         {
             if (!File.Exists(rfaPath))
                 throw new FileNotFoundException("Family file not found.", rfaPath);
@@ -67,7 +69,16 @@ namespace Revit_Command_Centre.Services
                 t.Commit();
             }
 
-            familyDoc.Save();
+            if (!string.IsNullOrEmpty(outputPath) && outputPath != rfaPath)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+                var saveOpts = new SaveAsOptions { OverwriteExistingFile = true };
+                familyDoc.SaveAs(outputPath, saveOpts);
+            }
+            else
+            {
+                familyDoc.Save();
+            }
             familyDoc.Close(false);
 
             log.Insert(0, $"[{Path.GetFileName(rfaPath)}] Added {added}, skipped {skipped}\n");

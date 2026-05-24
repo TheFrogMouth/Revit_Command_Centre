@@ -4,6 +4,15 @@ using Autodesk.Revit.UI;
 
 namespace Revit_Command_Centre
 {
+    /// <summary>
+    /// Keeps the ribbon button enabled at all times — no project required.
+    /// The panel can open and process family files without an active document.
+    /// </summary>
+    public class LaunchCommandAvailability : IExternalCommandAvailability
+    {
+        public bool IsCommandAvailable(UIApplication app, CategorySet selectedCategories) => true;
+    }
+
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
     public class LaunchCommand : IExternalCommand
