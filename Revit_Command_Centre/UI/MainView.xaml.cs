@@ -5,8 +5,9 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
-using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using RevitDoc         = Autodesk.Revit.DB.Document;
+using RevitTransaction = Autodesk.Revit.DB.Transaction;
 using Revit_Command_Centre.Models;
 using Revit_Command_Centre.Modules.CreateFamilies;
 using Revit_Command_Centre.Modules.ProjectSetup;
@@ -442,11 +443,11 @@ namespace Revit_Command_Centre.UI
             try
             {
                 ProjectConfig config = psv.BuildConfig();
-                Document? doc = _uiApp?.ActiveUIDocument?.Document;
+                RevitDoc? doc = _uiApp?.ActiveUIDocument?.Document;
 
                 if (doc != null && !doc.IsReadOnly)
                 {
-                    using var tx = new Transaction(doc, "Apply BIM project config");
+                    using var tx = new RevitTransaction(doc, "Apply BIM project config");
                     tx.Start();
                     doc.ProjectInformation.Name       = config.ProjectName;
                     doc.ProjectInformation.Number     = config.ProjectNumber;
