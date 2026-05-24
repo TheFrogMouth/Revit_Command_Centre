@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Autodesk.Revit.UI;
+using Revit_Command_Centre.UI;
 using WpfTextBox = System.Windows.Controls.TextBox;
 
 namespace Revit_Command_Centre.Modules.SheetsAndDisciplines
@@ -16,6 +17,10 @@ namespace Revit_Command_Centre.Modules.SheetsAndDisciplines
     public partial class SheetsView : UserControl
     {
         private readonly UIApplication _uiApp;
+
+        private readonly Picker _format    = new(new[] { "[Disc]-[Floor]-[Number]", "[Disc][Number]", "Custom" }, defaultIndex: 0);
+        private readonly Picker _padding   = new(new[] { "2 digits", "3 digits" }, defaultIndex: 1);
+        private readonly Picker _separator = new(new[] { "Dash", "Dot", "None" }, defaultIndex: 0);
 
         private static readonly (string Code, string Name)[] Disciplines =
         {
@@ -37,6 +42,9 @@ namespace Revit_Command_Centre.Modules.SheetsAndDisciplines
             InitializeComponent();
             Loaded += (_, _) =>
             {
+                PickerHelper.Refresh(CmbFormat,    _format,    RefreshPreview);
+                PickerHelper.Refresh(CmbPadding,   _padding,   RefreshPreview);
+                PickerHelper.Refresh(CmbSeparator, _separator, RefreshPreview);
                 BuildDisciplineCards();
                 RefreshPreview();
             };
@@ -144,16 +152,14 @@ namespace Revit_Command_Centre.Modules.SheetsAndDisciplines
 
         // ──────────────────────────────────────  sheet preview  ───────────────────────────────────
 
-        private void NamingOption_Changed(object sender, SelectionChangedEventArgs e) => RefreshPreview();
-
         /// <summary>Regenerates the live preview table based on active disciplines and naming options.</summary>
         private void RefreshPreview()
         {
             if (PreviewList == null) return;
 
-            string format    = (CmbFormat?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "[Disc]-[Floor]-[Number]";
-            string padding   = (CmbPadding?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "3 digits";
-            string separator = (CmbSeparator?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "Dash";
+            string format    = _format.Value;
+            string padding   = _padding.Value;
+            string separator = _separator.Value;
 
             char sep = separator switch { "Dot" => '.', "None" => '\0', _ => '-' };
             int padLen = padding.StartsWith("2") ? 2 : 3;
