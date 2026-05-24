@@ -54,9 +54,9 @@
                                  MouseLeftButtonUp="OutputFolder_Click"
                                  Text="Same as source file"/>
                     </StackPanel>
-                    <Button Grid.Column="2" Content="Browse" Margin="0,18,0,0"
-                            Style="{StaticResource SecondaryButtonStyle}"
-                            Click="OutputFolder_Click"/>
+                    <!-- Browse button built in code-behind — no WPF Button ControlTemplate -->
+                    <StackPanel x:Name="BrowseOutputFolderContainer" Grid.Column="2"
+                                Margin="0,18,0,0" VerticalAlignment="Top"/>
                 </Grid>
 
                 <!-- Name prefix row -->
@@ -89,9 +89,8 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="FILES TO PROCESS" Style="{StaticResource LabelStyle}" Margin="0"/>
-                    <Button Grid.Column="1" x:Name="BtnClearFiles" Content="Clear"
-                            Style="{StaticResource SecondaryButtonStyle}"
-                            Click="ClearFiles_Click" Padding="10,0" Height="24" FontSize="11"/>
+                    <!-- Clear button built in code-behind -->
+                    <StackPanel x:Name="ClearFilesContainer" Grid.Column="1"/>
                 </Grid>
                 <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
                     <StackPanel x:Name="FileListPanel">
@@ -113,20 +112,12 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="CATEGORY FILTER" Style="{StaticResource LabelStyle}"/>
-                    <ComboBox x:Name="CmbCategoryFilter" Style="{StaticResource ComboBoxStyle}">
-                        <ComboBoxItem Content="All" IsSelected="True"/>
-                        <ComboBoxItem Content="Architectural"/>
-                        <ComboBoxItem Content="Structural"/>
-                        <ComboBoxItem Content="MEP"/>
-                    </ComboBox>
+                    <!-- Picker built in code-behind — no WPF ComboBox ControlTemplate -->
+                    <StackPanel x:Name="CmbCategoryFilter"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="APPLY PARAMETERS" Style="{StaticResource LabelStyle}"/>
-                    <ComboBox x:Name="CmbParameterFilter" Style="{StaticResource ComboBoxStyle}">
-                        <ComboBoxItem Content="From project config" IsSelected="True"/>
-                        <ComboBoxItem Content="Tier 1 only"/>
-                        <ComboBoxItem Content="All tiers"/>
-                    </ComboBox>
+                    <StackPanel x:Name="CmbParameterFilter"/>
                 </StackPanel>
             </Grid>
         </Border>
@@ -146,9 +137,11 @@
                                FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
                                Margin="8,0,0,0"/>
                 </Grid>
-                <ProgressBar x:Name="ProgressBar" Height="6" Minimum="0" Maximum="100"
-                             Foreground="{StaticResource PrimaryBlueBrush}"
-                             Background="#E0E0E0" Value="0"/>
+                <!-- ProgressBar replaced with two-Border custom control — no WPF ProgressBar ControlTemplate -->
+                <Border Height="6" CornerRadius="3" Background="#E0E0E0">
+                    <Border x:Name="ProgressFill" Height="6" CornerRadius="3" HorizontalAlignment="Left"
+                            Background="{StaticResource PrimaryBlueBrush}" Width="0"/>
+                </Border>
             </StackPanel>
         </Border>
 

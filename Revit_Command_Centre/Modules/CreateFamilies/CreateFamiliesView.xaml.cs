@@ -7,6 +7,7 @@ using System.Windows.Media;
 using Autodesk.Revit.UI;
 using Revit_Command_Centre.Models;
 using Revit_Command_Centre.Services;
+using Revit_Command_Centre.UI;
 
 namespace Revit_Command_Centre.Modules.CreateFamilies
 {
@@ -19,6 +20,8 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
     {
         private readonly UIApplication _uiApp;
         private string _selectedTemplate = "Generic";
+
+        private readonly Picker _paramTier = new(new[] { "From project config", "Tier 1 only", "All tiers" });
 
         private static readonly string[] TemplateNames =
         {
@@ -63,6 +66,14 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
                     TxtTemplateFolder.Text = settings.FamilyTemplateFolder;
                 if (!string.IsNullOrEmpty(settings.DefaultFamilyOutputFolder))
                     TxtSaveFolder.Text = settings.DefaultFamilyOutputFolder;
+
+                PickerHelper.Refresh(CmbParameterTier, _paramTier, UpdateHint);
+
+                // Border-based Browse buttons (no WPF Button ControlTemplate)
+                BrowseTemplateFolderContainer.Children.Add(
+                    PickerHelper.MakeButton("Browse…", BrowseTemplateFolder_Click));
+                BrowseSaveFolderContainer.Children.Add(
+                    PickerHelper.MakeButton("Browse…", (s, e) => BrowseFolder_Click(s, e)));
 
                 BuildTemplateCards();
                 UpdateHint();
@@ -161,7 +172,7 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
 
         // ──────────────────────────────────────  folder pickers  ──────────────────────────────────
 
-        private void BrowseFolder_Click(object sender, RoutedEventArgs e)
+        private void BrowseFolder_Click(object sender, MouseButtonEventArgs e)
         {
             var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Select save folder" };
             if (dlg.ShowDialog() != true) return;
@@ -172,7 +183,7 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
             AppSettingsService.Save(settings);
         }
 
-        private void BrowseTemplateFolder_Click(object sender, RoutedEventArgs e)
+        private void BrowseTemplateFolder_Click(object sender, MouseButtonEventArgs e)
         {
             var dlg = new Microsoft.Win32.OpenFolderDialog
             {
@@ -185,9 +196,6 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
             settings.FamilyTemplateFolder = dlg.FolderName;
             AppSettingsService.Save(settings);
         }
-
-        private void BrowseTemplateFolder_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
-            => BrowseTemplateFolder_Click(sender, (RoutedEventArgs)e);
 
         // ──────────────────────────────────────  generate (called by MainWindow)  ─────────────────
 
@@ -243,15 +251,11 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
 
         // ──────────────────────────────────────  helpers  ─────────────────────────────────────────
 
-        private int GetTierFromFilter()
+        private int GetTierFromFilter() => _paramTier.Value switch
         {
-            string filter = (CmbParameterTier?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "From project config";
-            return filter switch
-            {
-                "Tier 1 only" => 1,
-                "All tiers"   => 3,
-                _             => 2
-            };
-        }
+            "Tier 1 only" => 1,
+            "All tiers"   => 3,
+            _             => 2
+        };
     }
 }

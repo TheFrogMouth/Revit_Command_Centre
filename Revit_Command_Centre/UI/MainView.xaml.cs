@@ -381,22 +381,29 @@ namespace Revit_Command_Centre.UI
 
         private void AddTopbarButton(string label, bool isSecondary, RoutedEventHandler onClick)
         {
-            var btn = new Button
+            // Use Border+TextBlock instead of Button — WPF Button's default ControlTemplate
+            // uses D3D9 gradients that crash on AMD RX 9060 XT inside Revit.
+            var btn = new Border
             {
-                Content         = label,
                 Height          = 32,
                 Cursor          = Cursors.Hand,
-                FontFamily      = AppFont,
-                FontSize        = 12,
-                FontWeight      = isSecondary ? FontWeights.Normal : FontWeights.Medium,
                 Padding         = new Thickness(14, 0, 14, 0),
                 Margin          = new Thickness(isSecondary ? 0 : 8, 0, 0, 0),
+                CornerRadius    = new CornerRadius(4),
                 BorderThickness = isSecondary ? new Thickness(1) : new Thickness(0),
                 BorderBrush     = isSecondary ? BorderC : null,
                 Background      = isSecondary ? Brushes.White : PrimaryBlue,
-                Foreground      = isSecondary ? TextPrimary  : Brushes.White
+                Child = new TextBlock
+                {
+                    Text              = label,
+                    FontFamily        = AppFont,
+                    FontSize          = 12,
+                    FontWeight        = isSecondary ? FontWeights.Normal : FontWeights.Medium,
+                    Foreground        = isSecondary ? TextPrimary : Brushes.White,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
             };
-            btn.Click += onClick;
+            btn.MouseLeftButtonUp += (s, e) => onClick(s, new RoutedEventArgs());
             _topbarButtons.Children.Add(btn);
         }
 

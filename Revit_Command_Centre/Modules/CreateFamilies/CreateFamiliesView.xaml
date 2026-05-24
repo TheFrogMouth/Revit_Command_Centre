@@ -28,9 +28,9 @@
                              MouseLeftButtonUp="BrowseTemplateFolder_Click"
                              ToolTip="Folder containing Revit .rft template files. Leave blank to use Revit's default path."/>
                 </StackPanel>
-                <Button Grid.Column="2" Content="Browse…" Margin="0,18,0,0"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        Click="BrowseTemplateFolder_Click"/>
+                <!-- Browse built in code-behind — no WPF Button ControlTemplate -->
+                <StackPanel x:Name="BrowseTemplateFolderContainer" Grid.Column="2"
+                            Margin="0,18,0,0" VerticalAlignment="Top"/>
             </Grid>
         </Border>
 
@@ -92,30 +92,26 @@
                 <!-- Parameters to inject -->
                 <StackPanel Grid.Column="2" Grid.Row="4">
                     <TextBlock Text="PARAMETERS TO INJECT" Style="{StaticResource LabelStyle}"/>
-                    <ComboBox x:Name="CmbParameterTier" Style="{StaticResource ComboBoxStyle}">
-                        <ComboBoxItem Content="From project config" IsSelected="True"/>
-                        <ComboBoxItem Content="Tier 1 only"/>
-                        <ComboBoxItem Content="All tiers"/>
-                    </ComboBox>
+                    <!-- Picker built in code-behind — no WPF ComboBox ControlTemplate -->
+                    <StackPanel x:Name="CmbParameterTier"/>
                 </StackPanel>
 
                 <!-- Save to folder -->
-                <StackPanel Grid.Column="0" Grid.Row="6" Grid.ColumnSpan="3">
-                    <TextBlock Text="SAVE TO FOLDER" Style="{StaticResource LabelStyle}"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="8"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="TxtSaveFolder" Grid.Column="0"
-                                 Style="{StaticResource TextBoxStyle}"
+                <Grid Grid.Column="0" Grid.Row="6" Grid.ColumnSpan="3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="SAVE TO FOLDER" Style="{StaticResource LabelStyle}"/>
+                        <TextBox x:Name="TxtSaveFolder" Style="{StaticResource TextBoxStyle}"
                                  IsReadOnly="True"/>
-                        <Button Grid.Column="2" Content="Browse…"
-                                Style="{StaticResource SecondaryButtonStyle}"
-                                Click="BrowseFolder_Click"/>
-                    </Grid>
-                </StackPanel>
+                    </StackPanel>
+                    <!-- Browse built in code-behind — no WPF Button ControlTemplate -->
+                    <StackPanel x:Name="BrowseSaveFolderContainer" Grid.Column="2"
+                                Margin="0,18,0,0" VerticalAlignment="Top"/>
+                </Grid>
             </Grid>
         </Border>
 

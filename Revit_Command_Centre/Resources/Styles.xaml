@@ -74,29 +74,9 @@
         <Setter Property="VerticalContentAlignment" Value="Center"/>
     </Style>
 
-    <Style x:Key="ComboBoxStyle" TargetType="ComboBox">
-        <Setter Property="FontFamily"      Value="{StaticResource AppFont}"/>
-        <Setter Property="FontSize"        Value="12"/>
-        <Setter Property="Foreground"      Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="Background"      Value="White"/>
-        <Setter Property="BorderBrush"     Value="{StaticResource BorderBrush_}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding"         Value="8,0"/>
-        <Setter Property="Height"          Value="32"/>
-    </Style>
-
-    <Style x:Key="SecondaryButtonStyle" TargetType="Button">
-        <Setter Property="FontFamily"      Value="{StaticResource AppFont}"/>
-        <Setter Property="FontSize"        Value="12"/>
-        <Setter Property="FontWeight"      Value="Normal"/>
-        <Setter Property="Foreground"      Value="{StaticResource TextPrimaryBrush}"/>
-        <Setter Property="Background"      Value="White"/>
-        <Setter Property="BorderBrush"     Value="{StaticResource BorderBrush_}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Padding"         Value="14,0"/>
-        <Setter Property="Height"          Value="32"/>
-        <Setter Property="Cursor"          Value="Hand"/>
-    </Style>
+    <!-- ComboBoxStyle and SecondaryButtonStyle removed — WPF ComboBox and Button
+         default ControlTemplates use D3D9 gradient paths that crash on AMD RX 9060 XT.
+         All dropdowns and action buttons are now Border + MouseLeftButtonUp via PickerHelper. -->
 
     <!-- ══════════════════════  CARD / TILE  ══════════════════════ -->
     <Style x:Key="CardStyle" TargetType="Border">

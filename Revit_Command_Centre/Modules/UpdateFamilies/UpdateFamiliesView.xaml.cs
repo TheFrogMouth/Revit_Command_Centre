@@ -8,6 +8,7 @@ using System.Windows.Media;
 using Autodesk.Revit.UI;
 using Revit_Command_Centre.Models;
 using Revit_Command_Centre.Services;
+using Revit_Command_Centre.UI;
 
 namespace Revit_Command_Centre.Modules.UpdateFamilies
 {
@@ -18,6 +19,11 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
         private string _outputFolder = string.Empty;
 
         private int _total, _updated, _skipped, _errors;
+
+        private double _progressBarTotalWidth;
+
+        private readonly Picker _categoryFilter  = new(new[] { "All", "Architectural", "Structural", "MEP" });
+        private readonly Picker _parameterFilter = new(new[] { "From project config", "Tier 1 only", "All tiers" });
 
         private static readonly SolidColorBrush BrushInfo    = new(Color.FromRgb(0x18, 0x5F, 0xA5));
         private static readonly SolidColorBrush BrushSuccess = new(Color.FromRgb(0x1D, 0x9E, 0x75));
@@ -46,6 +52,27 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             }
 
             TxtNamePrefix.TextChanged += (_, __) => RefreshFileList();
+
+            Loaded += (_, _) =>
+            {
+                PickerHelper.Refresh(CmbCategoryFilter,  _categoryFilter);
+                PickerHelper.Refresh(CmbParameterFilter, _parameterFilter);
+
+                // Border-based Browse button (no WPF Button ControlTemplate)
+                BrowseOutputFolderContainer.Children.Add(
+                    PickerHelper.MakeButton("Browse", OutputFolder_Click));
+
+                // Border-based Clear button
+                ClearFilesContainer.Children.Add(
+                    PickerHelper.MakeButton("Clear", ClearFiles_Click,
+                        height: 24, margin: new Thickness(0)));
+
+                _progressBarTotalWidth = ProgressFill.ActualWidth > 0
+                    ? ProgressFill.ActualWidth
+                    : 300;
+                ProgressFill.SizeChanged += (_, e) => _progressBarTotalWidth = e.NewSize.Width > 0
+                    ? e.NewSize.Width : _progressBarTotalWidth;
+            };
         }
 
         // ── drop zone ─────────────────────────────────────────────────────────────────────────────
@@ -89,7 +116,10 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
 
         // ── output folder ──────────────────────────────────────────────────────────────────────────
 
-        private void OutputFolder_Click(object sender, RoutedEventArgs e)
+        private void OutputFolder_Click(object sender, MouseButtonEventArgs e) => OpenOutputFolderDialog();
+        private void OutputFolder_Click(object sender, RoutedEventArgs e)     => OpenOutputFolderDialog();
+
+        private void OpenOutputFolderDialog()
         {
             var dlg = new Microsoft.Win32.OpenFolderDialog
             {
@@ -106,11 +136,6 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             AppSettingsService.Save(settings);
         }
 
-        private void OutputFolder_Click(object sender, MouseButtonEventArgs e)
-        {
-            OutputFolder_Click(sender, (RoutedEventArgs)e);
-        }
-
         // ── file list ──────────────────────────────────────────────────────────────────────────────
 
         private void AddFiles(IEnumerable<string> paths)
@@ -123,7 +148,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             RefreshFileList();
         }
 
-        private void ClearFiles_Click(object sender, RoutedEventArgs e)
+        private void ClearFiles_Click(object sender, MouseButtonEventArgs e)
         {
             _selectedFiles.Clear();
             RefreshFileList();
@@ -235,9 +260,9 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
 
                 Dispatcher.Invoke(() =>
                 {
-                    TxtCurrentFile.Text = shortName;
-                    TxtProgress.Text    = $"{processed}/{_total}";
-                    ProgressBar.Value   = pct;
+                    TxtCurrentFile.Text   = shortName;
+                    TxtProgress.Text      = $"{processed}/{_total}";
+                    ProgressFill.Width    = _progressBarTotalWidth * pct / 100.0;
                 });
 
                 string? outputPath = ResolveOutputPath(file, prefix);
@@ -261,7 +286,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             {
                 TxtCurrentFile.Text = "Done";
                 TxtProgress.Text    = $"{_total}/{_total}";
-                ProgressBar.Value   = 100;
+                ProgressFill.Width  = _progressBarTotalWidth;
             });
 
             AppendLog($"→ Batch complete. Updated: {_updated}  Skipped: {_skipped}  Errors: {_errors}", BrushInfo);
@@ -296,8 +321,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
 
         private List<FamilyParameter> GetRequiredParameters()
         {
-            string filter = (CmbParameterFilter.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "From project config";
-            int tier = filter switch
+            int tier = _parameterFilter.Value switch
             {
                 "Tier 1 only" => 1,
                 "All tiers"   => 3,
