@@ -1,0 +1,164 @@
+BIM Command Centre — Crash History & All Fixes Attempted
+=========================================================
+
+ENVIRONMENT
+-----------
+Machine:  AMD Ryzen 5 7600, 64GB RAM, AMD Radeon RX 9060 XT (driver 32.0.31007.5012), Windows 11 Pro
+Revit:    2025.4, build 20251111_1515
+Add-in:   .NET 8 WPF, compiled against RevitAPI 25.0.0.0
+          (Revit 2025.4 ships 25.4.40.0 — version mismatch warning logged on every load, add-in still loads)
+
+Crash signature:
+  ExceptionCode:  0xc0000005 (ACCESS_VIOLATION)
+  ExceptionFlags: 0x80 (EXCEPTION_NONCONTINUABLE — CLR re-raise of Corrupted State Exception)
+  Address:        Always in unmapped JIT heap (managed code, no named DLL module)
+  Timing:         ~1.2–1.4 seconds after WPF construction begins
+  Catchable:      NO — Corrupted State Exceptions bypass all try/catch in .NET 8
+
+
+ATTEMPT 1 — Remove per-window RenderMode (commit f5afe03)
+----------------------------------------------------------
+Problem:
+  Crash ~1.2s after button click at 00007FFB4993C428 in JIT heap.
+
+Hypothesis:
+  Our code called hwndSource.CompositionTarget.RenderMode = SoftwareOnly after Revit had
+  already set it process-wide at startup — double-initialisation of WPF's software renderer.
+
+Fix:
+  Removed all EnsureHandle() + HwndSource + per-window RenderMode code.
+
+Result:
+  Still crashed.
+
+
+ATTEMPT 2 — Remove GetEntity call from constructor (commit c0da6cc)
+--------------------------------------------------------------------
+Problem:
+  Crash at 00007FFB41443516. Also found duplicate SetVendorId call in GetOrCreateSchema().
+
+Hypothesis:
+  doc.ProjectInformation.GetEntity(schema) in the MainWindow constructor triggered an
+  uncatchable native AccessViolationException via Revit's Extensible Storage API.
+
+Fix:
+  Removed ExtensibleStorageService.ReadConfig(doc) from constructor entirely.
+  Fixed duplicate SetVendorId call.
+
+Result:
+  Still crashed.
+
+
+ATTEMPT 3 — Remove all Revit API calls from constructor
+--------------------------------------------------------
+Problem:
+  Crash at 00007FFB4A5409D6, 1.2s after click, on Revit's main thread.
+
+Hypothesis:
+  Any Revit API call (doc.Title, doc.PathName) during WPF construction was unsafe.
+
+Fix:
+  Removed all Revit API calls from constructor. Also removed WindowInteropHelper.Owner.
+
+Result:
+  Still crashed.
+
+
+ATTEMPT 4 — Move Window to isolated STA thread (commit 583b72b)
+---------------------------------------------------------------
+Problem:
+  Crash still on Revit's main thread.
+
+Hypothesis:
+  Creating the WPF Window on Revit's main thread was unsafe. A dedicated STA thread
+  would isolate it from Revit's rendering context.
+
+Fix:
+  ExternalEvent handler spawns a new ApartmentState.STA background thread.
+  MainWindow created and Dispatcher.Run() called on that thread.
+
+Result:
+  Crash moved to our STA thread (id=36696) at 00007FFB48944D48. Process still died
+  because an unhandled CSE on any thread kills the process.
+
+
+ATTEMPT 5 — Inline Styles.xaml, eliminate pack URI BAML load (commit 00946fc)
+------------------------------------------------------------------------------
+Problem:
+  Crash at 00007FFB3C625828, same STA thread, 1.22s after click.
+
+Hypothesis:
+  The ResourceDictionary Source="pack://application:,,,/..." load of Styles.xaml was
+  triggering a BAML parse crash.
+
+Fix:
+  Moved all style definitions directly into MainWindow.xaml's <Window.Resources>.
+  No external ResourceDictionary.
+
+Result:
+  Still crashed. Pack URI elimination did not help.
+
+
+ATTEMPT 6 — Convert to Revit Dockable Pane (commit 426931c)
+------------------------------------------------------------
+Problem:
+  All top-level Window creation crashes, regardless of thread or style approach.
+
+Hypothesis:
+  The root cause is WPF creating a new render target / HWND for a top-level Window
+  inside Revit's process. Revit's dockable pane framework hosts a UserControl inside
+  Revit's own existing window — no new render target.
+
+Fix:
+  - Deleted MainWindow.xaml / MainWindow.xaml.cs
+  - Created MainView.xaml (UserControl, same layout, all styles inlined)
+  - Created MainViewPaneProvider.cs implementing IDockablePaneProvider
+  - App.OnStartup calls app.RegisterDockablePane(PaneId, ..., new MainViewPaneProvider())
+  - LaunchCommand.Execute calls GetDockablePane(PaneId).Show()
+
+Result:
+  The button-click crash stopped. But Revit now crashed when opening ANY project —
+  even before clicking the button. Crash was on Revit's worker thread, antecedent
+  "Create a new project". Hypothesis: RegisterDockablePane causes Revit to call
+  SetupDockablePane -> new MainView() -> InitializeComponent() during document loading.
+  The complex ControlTemplates and Triggers in MainView.xaml's Resources (NavButtonStyle,
+  PrimaryButtonStyle, etc.) trigger the same crash in WPF's style compilation step.
+
+
+ATTEMPT 7 — Build MainView UI entirely in code (commit a274dff, PR #11) — CURRENT
+-----------------------------------------------------------------------------------
+Problem:
+  InitializeComponent() compiles complex ControlTemplates with Triggers, crashing during
+  WPF's style engine initialisation inside Revit's rendering context.
+
+Hypothesis:
+  The crash is not in Window creation per se, but in WPF's style/template compilation for
+  our custom ControlTemplates. A UserControl with zero custom Templates should be safe.
+
+Fix:
+  - MainView.xaml reduced to an empty <UserControl/> stub — no resources, no content,
+    no named elements
+  - MainView.xaml.cs builds the entire UI in code: Grid, Border, StackPanel, TextBlock,
+    Ellipse with direct property assignments — no ControlTemplate, no Trigger, no Style
+  - Nav items are Border elements with MouseLeftButtonUp handlers instead of
+    Button + custom ControlTemplate
+  - All brushes are frozen SolidColorBrush instances
+  - InitializeComponent() still called but is now trivially empty (no BAML to compile)
+  - Module views (ProjectSetupView, SheetsView, etc.) remain XAML-based but are
+    lazy-loaded only when the user clicks a nav button
+
+Status:
+  Not yet tested on hardware.
+
+
+WHAT HAS NEVER BEEN TRIED
+--------------------------
+- Updating the project reference from RevitAPI 25.0.0.0 to 25.4.40.0 (the actual version
+  Revit 2025.4 ships) to eliminate the version mismatch warning on load
+- Testing whether any other WPF add-in works on this machine (would confirm if the issue
+  is Revit+AMD-specific or add-in-specific)
+- Running with an older AMD driver
+- Windows Forms-based UI (not possible with the Revit dockable pane API, which requires
+  a WPF FrameworkElement)
+- Filing a bug with Autodesk — the dockable pane crashing on project open when registered
+  at startup may be a Revit 2025.4 regression

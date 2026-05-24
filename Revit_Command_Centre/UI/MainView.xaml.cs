@@ -45,6 +45,7 @@ namespace Revit_Command_Centre.UI
 
         // ── live UI references ────────────────────────────────────────────────
         private Border?        _activeNavItem;
+        private UIApplication? _uiApp;
         private string         _cachedDocTitle   = "No document open";
         private string         _cachedProjNumber = "—";
         private string         _cachedDocPath    = string.Empty;
@@ -77,7 +78,7 @@ namespace Revit_Command_Centre.UI
             Loaded += OnLoaded;
         }
 
-        private UIApplication? UiApp => App.CurrentUIApp;
+        private UIApplication? UiApp => _uiApp;
 
         // ── UI construction ───────────────────────────────────────────────────
 
@@ -270,9 +271,23 @@ namespace Revit_Command_Centre.UI
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
+            // Construction and Loaded are called by Revit during document loading — a time
+            // when the Revit API is unsafe to call and documents are not in a stable state.
+            // Do NOT touch UIApplication, Document, or instantiate module views here.
+            // All of that is deferred to Activate(), called only from LaunchCommand.Execute.
+            _txtDocumentName.Text  = _cachedDocTitle;
+            _txtProjectNumber.Text = _cachedProjNumber;
+            _docStatusDot.Fill     = WarningAmber;
+        }
+
+        // Called by LaunchCommand.Execute after pane.Show() — safe Revit API context.
+        public void Activate(UIApplication uiApp)
+        {
+            _uiApp = uiApp;
+
             try
             {
-                var doc = UiApp?.ActiveUIDocument?.Document;
+                var doc = uiApp.ActiveUIDocument?.Document;
                 if (doc != null)
                 {
                     _cachedDocTitle = doc.Title;
@@ -283,9 +298,9 @@ namespace Revit_Command_Centre.UI
 
             _txtDocumentName.Text  = _cachedDocTitle;
             _txtProjectNumber.Text = _cachedProjNumber;
-            _docStatusDot.Fill     = WarningAmber;
 
-            ActivateView("ProjectSetup", _btnProjectSetup);
+            if (_activeNavItem == null)
+                ActivateView("ProjectSetup", _btnProjectSetup);
         }
 
         // ── navigation ────────────────────────────────────────────────────────
