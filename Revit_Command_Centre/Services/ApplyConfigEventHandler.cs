@@ -16,6 +16,8 @@ namespace Revit_Command_Centre.Services
         public ProjectConfig? PendingConfig    { get; set; }
         public string?        RvtFilePath     { get; set; }
         public string?        TitleBlockFolder { get; set; }
+        /// <summary>If set, the document is saved (or renamed) to this full path after applying config.</summary>
+        public string?        SaveAsPath      { get; set; }
 
         public void Execute(UIApplication app)
         {
@@ -51,15 +53,27 @@ namespace Revit_Command_Centre.Services
             ExtensibleStorageService.WriteConfig(doc, PendingConfig);
             tx.Commit();
 
-            if (!string.IsNullOrEmpty(RvtFilePath))
+            // SaveAs / rename the Revit file if a path was provided
+            string saveMsg = string.Empty;
+            if (!string.IsNullOrEmpty(SaveAsPath))
+            {
+                var opts = new SaveAsOptions { OverwriteExistingFile = true };
+                doc.SaveAs(SaveAsPath, opts);
+                saveMsg = $"\nProject saved as: {System.IO.Path.GetFileName(SaveAsPath)}";
+                // Update the sidecar JSON next to the new file
+                ConfigService.SaveConfig(PendingConfig, SaveAsPath);
+            }
+            else if (!string.IsNullOrEmpty(RvtFilePath))
+            {
                 ConfigService.SaveConfig(PendingConfig, RvtFilePath);
+            }
 
             string tbMsg = rfaPath != null
                 ? $"\nTitle block loaded: {Path.GetFileName(rfaPath)}"
                 : (string.IsNullOrEmpty(TitleBlockFolder) ? "" : "\nNo matching title block RFA found in the specified folder.");
 
             MessageBox.Show(
-                $"Project information updated in Revit and config saved.{tbMsg}",
+                $"Project information updated in Revit and config saved.{tbMsg}{saveMsg}",
                 "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 

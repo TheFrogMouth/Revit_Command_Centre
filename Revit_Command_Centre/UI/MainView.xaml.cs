@@ -440,10 +440,36 @@ namespace Revit_Command_Centre.UI
             if (_contentArea.Content is not ProjectSetupView psv) return;
             if (App.ApplyConfigHandler == null || App.ApplyConfigEvent == null) return;
 
-            App.ApplyConfigHandler.PendingConfig    = psv.BuildConfig();
+            var config = psv.BuildConfig();
+
+            // Offer to save/rename if the project has never been saved to disk
+            string? saveAsPath = null;
+            if (string.IsNullOrEmpty(_cachedDocPath))
+            {
+                string suggested = SanitizeFileName(
+                    $"{config.ProjectNumber} - {config.ProjectName}.rvt".Trim(' ', '-', ' '));
+                var dlg = new Microsoft.Win32.SaveFileDialog
+                {
+                    Title    = "Save Revit Project As",
+                    Filter   = "Revit Project (*.rvt)|*.rvt",
+                    FileName = string.IsNullOrWhiteSpace(suggested) ? "Project.rvt" : suggested
+                };
+                if (dlg.ShowDialog() == true)
+                    saveAsPath = dlg.FileName;
+            }
+
+            App.ApplyConfigHandler.PendingConfig    = config;
             App.ApplyConfigHandler.RvtFilePath      = _cachedDocPath;
             App.ApplyConfigHandler.TitleBlockFolder = AppSettingsService.Load().TitleBlockFolder;
+            App.ApplyConfigHandler.SaveAsPath       = saveAsPath;
             App.ApplyConfigEvent.Raise();
+        }
+
+        private static string SanitizeFileName(string name)
+        {
+            foreach (char c in System.IO.Path.GetInvalidFileNameChars())
+                name = name.Replace(c, '_');
+            return name;
         }
 
         private void Sheets_Generate(object sender, RoutedEventArgs e)

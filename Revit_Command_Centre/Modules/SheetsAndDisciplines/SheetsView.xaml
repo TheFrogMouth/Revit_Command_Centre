@@ -24,16 +24,32 @@
         <TextBlock Text="FLOORS / LEVELS" Style="{StaticResource SectionHeaderStyle}" Margin="0,4,0,10"/>
 
         <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
-            <StackPanel>
-                <TextBlock Text="FLOOR CODES" Style="{StaticResource LabelStyle}"/>
-                <TextBox x:Name="TxtFloors" Style="{StaticResource TextBoxStyle}"
-                         ToolTip="Comma-separated floor codes, e.g. GF, L1, L2, L3. Leave blank to create one sheet per discipline without a floor code."
-                         TextChanged="Floors_Changed"/>
-                <TextBlock x:Name="TxtFloorsHint"
-                           FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
-                           FontStyle="Italic" Margin="0,4,0,0"
-                           Text="Leave blank — one sheet set per discipline"/>
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <!-- Above ground counter -->
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="ABOVE GROUND" Style="{StaticResource LabelStyle}"/>
+                    <StackPanel x:Name="AboveGroundCounter" Orientation="Horizontal"/>
+                </StackPanel>
+                <!-- Below ground counter -->
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="BELOW GROUND" Style="{StaticResource LabelStyle}"/>
+                    <StackPanel x:Name="BelowGroundCounter" Orientation="Horizontal"/>
+                </StackPanel>
+                <!-- Generated floor codes preview -->
+                <StackPanel Grid.Column="4" VerticalAlignment="Bottom">
+                    <TextBlock Text="FLOOR CODES" Style="{StaticResource LabelStyle}"/>
+                    <TextBlock x:Name="TxtFloorCodes"
+                               FontSize="11" Foreground="{StaticResource PrimaryBlueBrush}"
+                               FontFamily="Consolas" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- ── SHEET NAMING CONVENTION ── -->
