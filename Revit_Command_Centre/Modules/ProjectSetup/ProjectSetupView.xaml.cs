@@ -30,10 +30,30 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
             InitializeComponent();
             Loaded += (_, _) =>
             {
+                var settings = AppSettingsService.Load();
+                if (!string.IsNullOrEmpty(settings.TitleBlockFolder))
+                    TxtTitleBlockFolder.Text = settings.TitleBlockFolder;
+
+                BrowseTitleBlockFolderContainer.Children.Add(
+                    PickerHelper.MakeButton("Browse…", BrowseTitleBlockFolder_Click));
+
                 PickerHelper.Refresh(CmbLanguage,   _language,   UpdatePreview);
                 PickerHelper.Refresh(CmbTitleBlock, _titleBlock, UpdatePreview);
                 UpdatePreview();
             };
+        }
+
+        private void BrowseTitleBlockFolder_Click(object sender, MouseButtonEventArgs e)
+        {
+            var dlg = new Microsoft.Win32.OpenFolderDialog
+            {
+                Title = "Select folder containing title block .rfa files"
+            };
+            if (dlg.ShowDialog() != true) return;
+            TxtTitleBlockFolder.Text = dlg.FolderName;
+            var settings = AppSettingsService.Load();
+            settings.TitleBlockFolder = dlg.FolderName;
+            AppSettingsService.Save(settings);
         }
 
         // ──────────────────────────────────────  tier card selection  ──────────────────────────────
