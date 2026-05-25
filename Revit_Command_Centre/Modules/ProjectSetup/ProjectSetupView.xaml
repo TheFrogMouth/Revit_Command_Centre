@@ -13,6 +13,26 @@
 
     <StackPanel Margin="20,16,20,24">
 
+        <!-- ── TITLE BLOCK FOLDER ── -->
+        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="TITLE BLOCK FOLDER" Style="{StaticResource LabelStyle}"/>
+                    <TextBox x:Name="TxtTitleBlockFolder" Style="{StaticResource TextBoxStyle}"
+                             IsReadOnly="True" Cursor="Hand"
+                             MouseLeftButtonUp="BrowseTitleBlockFolder_Click"
+                             ToolTip="Folder containing title block .rfa files. Used by Save &amp; Apply to load the selected title block into the project."/>
+                </StackPanel>
+                <StackPanel x:Name="BrowseTitleBlockFolderContainer" Grid.Column="2"
+                            Margin="0,18,0,0" VerticalAlignment="Top"/>
+            </Grid>
+        </Border>
+
         <!-- ── CLIENT & PROJECT INFO ── -->
         <TextBlock Text="CLIENT &amp; PROJECT INFO" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,10"/>
 

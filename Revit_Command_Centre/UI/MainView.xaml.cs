@@ -349,6 +349,7 @@ namespace Revit_Command_Centre.UI
         private UIElement CreateSheetsView()
         {
             if (_uiApp == null) return NotActivatedPlaceholder();
+            AddTopbarButton("Generate sheets", isSecondary: false, onClick: Sheets_Generate);
             return new SheetsView(_uiApp);
         }
 
@@ -439,9 +440,15 @@ namespace Revit_Command_Centre.UI
             if (_contentArea.Content is not ProjectSetupView psv) return;
             if (App.ApplyConfigHandler == null || App.ApplyConfigEvent == null) return;
 
-            App.ApplyConfigHandler.PendingConfig = psv.BuildConfig();
-            App.ApplyConfigHandler.RvtFilePath   = _cachedDocPath;
+            App.ApplyConfigHandler.PendingConfig    = psv.BuildConfig();
+            App.ApplyConfigHandler.RvtFilePath      = _cachedDocPath;
+            App.ApplyConfigHandler.TitleBlockFolder = AppSettingsService.Load().TitleBlockFolder;
             App.ApplyConfigEvent.Raise();
+        }
+
+        private void Sheets_Generate(object sender, RoutedEventArgs e)
+        {
+            if (_contentArea.Content is SheetsView sv) sv.GenerateSheets();
         }
 
         private void UpdateFamilies_Validate(object sender, RoutedEventArgs e)

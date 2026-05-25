@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -150,7 +151,40 @@ namespace Revit_Command_Centre.Modules.SheetsAndDisciplines
             }
         }
 
+        // ──────────────────────────────────────  public API  ─────────────────────────────────────
+
+        /// <summary>Queues sheet generation in Revit's API event loop.</summary>
+        public void GenerateSheets()
+        {
+            if (App.GenerateSheetsHandler == null || App.GenerateSheetsEvent == null) return;
+
+            App.GenerateSheetsHandler.Disciplines = Disciplines
+                .Where(d => _activeCodes.Contains(d.Code))
+                .Select(d => (d.Code, d.Name))
+                .ToList();
+            App.GenerateSheetsHandler.Format    = _format.Value;
+            App.GenerateSheetsHandler.Padding   = _padding.Value;
+            App.GenerateSheetsHandler.Separator = _separator.Value;
+            App.GenerateSheetsHandler.Floors    = ParseFloors(TxtFloors?.Text ?? string.Empty);
+            App.GenerateSheetsEvent.Raise();
+        }
+
+        private static string[] ParseFloors(string input) =>
+            string.IsNullOrWhiteSpace(input)
+                ? Array.Empty<string>()
+                : input.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
         // ──────────────────────────────────────  sheet preview  ───────────────────────────────────
+
+        private void Floors_Changed(object sender, System.Windows.Controls.TextChangedEventArgs e)
+        {
+            RefreshPreview();
+            if (TxtFloorsHint == null) return;
+            string[] floors = ParseFloors(TxtFloors?.Text ?? string.Empty);
+            TxtFloorsHint.Text = floors.Length > 0
+                ? $"{_activeCodes.Count} discipline(s) × {floors.Length} floor(s) = {_activeCodes.Count * floors.Length} sheet(s)"
+                : "Leave blank — one sheet set per discipline";
+        }
 
         /// <summary>Regenerates the live preview table based on active disciplines and naming options.</summary>
         private void RefreshPreview()
@@ -166,18 +200,24 @@ namespace Revit_Command_Centre.Modules.SheetsAndDisciplines
 
             var rows = new List<SheetPreviewRow>();
 
+            string[] floors = ParseFloors(TxtFloors?.Text ?? string.Empty);
+            if (floors.Length == 0) floors = new[] { string.Empty };
+
             foreach (var (code, name) in Disciplines)
             {
                 if (!_activeCodes.Contains(code)) continue;
 
-                string num   = "001".PadLeft(padLen, '0');
-                string floor = "00";
-                string sheetCode = BuildCode(format, code, floor, num, sep);
-                rows.Add(new SheetPreviewRow { Code = sheetCode, Name = $"{name} — General Arrangement" });
-
-                string num2   = "002".PadLeft(padLen, '0');
-                string sheetCode2 = BuildCode(format, code, floor, num2, sep);
-                rows.Add(new SheetPreviewRow { Code = sheetCode2, Name = $"{name} — Detail Sheet" });
+                int num = 1;
+                foreach (string floor in floors)
+                {
+                    string numStr    = num.ToString().PadLeft(padLen, '0');
+                    string sheetCode = BuildCode(format, code, floor, numStr, sep);
+                    string sheetName = string.IsNullOrEmpty(floor)
+                        ? $"{name} — General Arrangement"
+                        : $"{name} — {floor} General Arrangement";
+                    rows.Add(new SheetPreviewRow { Code = sheetCode, Name = sheetName });
+                    num++;
+                }
             }
 
             PreviewList.ItemsSource = rows;
