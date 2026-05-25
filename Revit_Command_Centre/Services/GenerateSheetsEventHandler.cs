@@ -72,6 +72,7 @@ namespace Revit_Command_Centre.Services
                         ViewSheet sheet = ViewSheet.Create(doc, tbId);
                         sheet.SheetNumber = sheetNum;
                         sheet.Name        = sheetName;
+                        TrySetSheetCollection(sheet, name);
                         created++;
                     }
 
@@ -89,6 +90,20 @@ namespace Revit_Command_Centre.Services
         }
 
         public string GetName() => "BIM Command Centre — Generate Sheets";
+
+        /// <summary>
+        /// Tries to assign the sheet to a browser collection/folder named after the discipline.
+        /// Attempts several known parameter names — gracefully skips if none are available.
+        /// </summary>
+        private static void TrySetSheetCollection(ViewSheet sheet, string disciplineName)
+        {
+            // Revit 2024+ "Sheet Collection" parameter
+            Parameter? p = sheet.LookupParameter("Sheet Collection");
+            p ??= sheet.LookupParameter("Sheet Group");
+            p ??= sheet.LookupParameter("Folder");
+            if (p != null && !p.IsReadOnly && p.StorageType == StorageType.String)
+                p.Set(disciplineName);
+        }
 
         private static FamilySymbol? GetFirstTitleBlock(Document doc) =>
             new FilteredElementCollector(doc)
