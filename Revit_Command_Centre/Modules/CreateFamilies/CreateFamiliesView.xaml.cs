@@ -206,17 +206,17 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
         {
             if (!double.TryParse(TxtWidth.Text, out double width) || width <= 0)
             {
-                MessageBox.Show("Please enter a valid width in mm.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Autodesk.Revit.UI.TaskDialog.Show("BIM Command Centre", "Please enter a valid width in mm.");
                 return;
             }
             if (!double.TryParse(TxtHeight.Text, out double height) || height <= 0)
             {
-                MessageBox.Show("Please enter a valid height in mm.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Autodesk.Revit.UI.TaskDialog.Show("BIM Command Centre", "Please enter a valid height in mm.");
                 return;
             }
             if (string.IsNullOrWhiteSpace(TxtSaveFolder.Text))
             {
-                MessageBox.Show("Please select a save folder.", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Autodesk.Revit.UI.TaskDialog.Show("BIM Command Centre", "Please select a save folder.");
                 return;
             }
 
@@ -241,11 +241,11 @@ namespace Revit_Command_Centre.Modules.CreateFamilies
                     parameters,
                     templateFolder);
 
-                MessageBox.Show($"Family created successfully:\n{outputPath}", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
+                Autodesk.Revit.UI.TaskDialog.Show("BIM Command Centre", $"Family created successfully:\n{outputPath}");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to generate family:\n{ex.Message}", "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Error);
+                Autodesk.Revit.UI.TaskDialog.Show("BIM Command Centre", $"Failed to generate family:\n{ex.Message}");
             }
         }
 

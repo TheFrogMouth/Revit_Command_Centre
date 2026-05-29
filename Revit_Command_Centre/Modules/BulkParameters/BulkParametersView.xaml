@@ -1,0 +1,93 @@
+<UserControl x:Class="Revit_Command_Centre.Modules.BulkParameters.BulkParametersView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="Segoe UI">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/Revit_Command_Centre;component/Resources/Styles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <StackPanel Margin="20,16,20,24">
+
+        <!-- ── CONTROLS BAR ── -->
+        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="180"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="160"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="CATEGORY" Style="{StaticResource LabelStyle}"/>
+                    <!-- Picker built in code-behind -->
+                    <StackPanel x:Name="CmbCategory"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="PARAMETERS" Style="{StaticResource LabelStyle}"/>
+                    <!-- Selected parameter chips + add picker built in code-behind -->
+                    <StackPanel x:Name="SelectedParamsPanel"/>
+                    <StackPanel x:Name="AddParamContainer" Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="FILTER ROWS" Style="{StaticResource LabelStyle}"/>
+                    <TextBox x:Name="TxtFilter" Style="{StaticResource TextBoxStyle}"
+                             TextChanged="TxtFilter_Changed"
+                             ToolTip="Filter elements by name"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="6" VerticalAlignment="Bottom">
+                    <!-- Fill Down button, built in code-behind -->
+                    <StackPanel x:Name="FillDownContainer"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ── DATA GRID ── -->
+        <!-- AutoGenerateColumns=False + CanUserSortColumns=False + RowHeaderWidth=0
+             to avoid WPF ControlTemplate trigger paths that crash on AMD GPU -->
+        <DataGrid x:Name="BulkGrid"
+                  AutoGenerateColumns="False"
+                  CanUserSortColumns="False"
+                  RowHeaderWidth="0"
+                  EnableRowVirtualization="True"
+                  EnableColumnVirtualization="True"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  SelectionMode="Extended"
+                  SelectionUnit="Cell"
+                  HeadersVisibility="Column"
+                  MinHeight="200" MaxHeight="550"
+                  Margin="0,0,0,14"
+                  LoadingRow="BulkGrid_LoadingRow"
+                  CellEditEnding="BulkGrid_CellEditEnding"/>
+
+        <!-- ── BOTTOM BAR ── -->
+        <Border Style="{StaticResource CardStyle}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TxtEditCount" Grid.Column="0" FontSize="11"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           VerticalAlignment="Center" Text="0 cells edited"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <StackPanel x:Name="DiscardContainer"/>
+                    <StackPanel x:Name="CommitContainer" Margin="8,0,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+    </StackPanel>
+</UserControl>

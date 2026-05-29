@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using Revit_Command_Centre.Models;
 
@@ -51,6 +52,84 @@ namespace Revit_Command_Centre.Services
             string json = File.ReadAllText(configPath);
             return JsonSerializer.Deserialize<ProjectConfig>(json, JsonOptions);
         }
+
+        // ── template storage ──────────────────────────────────────────────────────────────────
+
+        private static string GetTemplatesFolder() =>
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "BIMCommandCentre", "Templates");
+
+        public static void EnsureStarterTemplates()
+        {
+            string folder = GetTemplatesFolder();
+            Directory.CreateDirectory(folder);
+            if (Directory.GetFiles(folder, "*.bimconfig.json").Length > 0) return;
+
+            var starters = new[]
+            {
+                ("Residential Tier 1",   new ProjectConfig { ComplianceTier = 1, Language = "English", IfcSchema = "", CobieEnabled = false }),
+                ("Commercial Tier 2",    new ProjectConfig { ComplianceTier = 2, Language = "English", IfcSchema = "IFC4", CobieEnabled = false }),
+                ("Public sector Tier 3", new ProjectConfig { ComplianceTier = 3, Language = "English", IfcSchema = "IFC4", CobieEnabled = true })
+            };
+            foreach (var (name, cfg) in starters)
+                SaveAsTemplate(cfg, name);
+        }
+
+        public static void SaveAsTemplate(ProjectConfig config, string templateName)
+        {
+            string folder = GetTemplatesFolder();
+            Directory.CreateDirectory(folder);
+
+            var template = new ProjectConfig
+            {
+                ComplianceTier    = config.ComplianceTier,
+                Language          = config.Language,
+                TitleBlock        = config.TitleBlock,
+                IfcSchema         = config.IfcSchema,
+                CobieEnabled      = config.CobieEnabled,
+                ClassificationSystem = config.ClassificationSystem,
+                SheetNamingFormat = config.SheetNamingFormat,
+                SheetNumberPadding = config.SheetNumberPadding,
+                SheetSeparator    = config.SheetSeparator,
+                TitleBlockMapping = new Dictionary<string, string>(config.TitleBlockMapping),
+                LastModified      = DateTime.UtcNow
+            };
+
+            string path = Path.Combine(folder, $"{SanitiseName(templateName)}.bimconfig.json");
+            File.WriteAllText(path, JsonSerializer.Serialize(template, JsonOptions));
+        }
+
+        public static ProjectConfig? LoadTemplate(string templateName)
+        {
+            string path = Path.Combine(GetTemplatesFolder(), $"{SanitiseName(templateName)}.bimconfig.json");
+            if (!File.Exists(path)) return null;
+            return JsonSerializer.Deserialize<ProjectConfig>(File.ReadAllText(path), JsonOptions);
+        }
+
+        public static List<string> GetAvailableTemplates()
+        {
+            string folder = GetTemplatesFolder();
+            if (!Directory.Exists(folder)) return new List<string>();
+            return Directory.GetFiles(folder, "*.bimconfig.json")
+                .Select(f => Path.GetFileNameWithoutExtension(f))
+                .OrderBy(n => n)
+                .ToList();
+        }
+
+        public static void DeleteTemplate(string templateName)
+        {
+            string path = Path.Combine(GetTemplatesFolder(), $"{SanitiseName(templateName)}.bimconfig.json");
+            if (File.Exists(path)) File.Delete(path);
+        }
+
+        private static string SanitiseName(string name)
+        {
+            foreach (char c in Path.GetInvalidFileNameChars())
+                name = name.Replace(c, '_');
+            return name;
+        }
+
+        // ── parameter definitions ─────────────────────────────────────────────────────────────
 
         /// <summary>
         /// Returns the canonical list of shared parameters for the given compliance tier.

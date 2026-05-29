@@ -13,6 +13,31 @@
 
     <StackPanel Margin="20,16,20,24">
 
+        <!-- ── TEMPLATES ── -->
+        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="TEMPLATES" Style="{StaticResource LabelStyle}" Margin="0"
+                               VerticalAlignment="Center"/>
+                    <!-- Toggle button built in code-behind -->
+                    <StackPanel x:Name="TemplatesBtnContainer" Grid.Column="1"/>
+                </Grid>
+                <TextBlock x:Name="TxtTemplateStatus" FontSize="11"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           TextWrapping="Wrap" Margin="0,4,0,0"/>
+                <!-- Flyout — Visibility toggled in code-behind (no Popup/ContextMenu) -->
+                <Border x:Name="TemplatesFlyout" Visibility="Collapsed"
+                        BorderBrush="{StaticResource BorderBrush_}" BorderThickness="1"
+                        CornerRadius="4" Padding="10,8" Margin="0,8,0,0">
+                    <StackPanel x:Name="TemplatesFlyoutContent"/>
+                </Border>
+            </StackPanel>
+        </Border>
+
         <!-- ── TITLE BLOCK FOLDER ── -->
         <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
             <Grid>
@@ -183,6 +208,46 @@
                 <TextBlock x:Name="PreviewTier" Grid.Column="1" Grid.Row="8"
                            FontSize="12" Foreground="{StaticResource PrimaryBlueBrush}" FontWeight="Medium"/>
             </Grid>
+        </Border>
+
+        <!-- ── TITLE BLOCK MAPPING ── -->
+        <TextBlock Text="TITLE BLOCK MAPPING" Style="{StaticResource SectionHeaderStyle}" Margin="0,14,0,10"/>
+
+        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="CLIENT →" Style="{StaticResource LabelStyle}"/>
+                        <!-- Picker items rendered in code-behind via PickerHelper.Refresh -->
+                        <StackPanel x:Name="CmbTbClient"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="PROJECT NAME →" Style="{StaticResource LabelStyle}"/>
+                        <StackPanel x:Name="CmbTbProjectName"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Text="PROJECT NUMBER →" Style="{StaticResource LabelStyle}"/>
+                        <StackPanel x:Name="CmbTbProjectNumber"/>
+                    </StackPanel>
+                </Grid>
+                <Grid Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TxtTbMappingStatus" Grid.Column="0" FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    <StackPanel x:Name="ApplyTbContainer" Grid.Column="1"/>
+                </Grid>
+            </StackPanel>
         </Border>
 
         <!-- ── WORKSETS ── -->
