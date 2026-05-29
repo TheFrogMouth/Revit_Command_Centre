@@ -26,14 +26,14 @@
                     <TextBox x:Name="TxtTitleBlockFolder" Style="{StaticResource TextBoxStyle}"
                              IsReadOnly="True" Cursor="Hand"
                              MouseLeftButtonUp="BrowseTitleBlockFolder_Click"
-                             ToolTip="Folder containing title block .rfa files. Used by Save &amp; Apply to load the selected title block into the project."/>
+                             ToolTip="Folder containing title block .rfa files."/>
                 </StackPanel>
                 <StackPanel x:Name="BrowseTitleBlockFolderContainer" Grid.Column="2"
                             Margin="0,18,0,0" VerticalAlignment="Top"/>
             </Grid>
         </Border>
 
-        <!-- ── CLIENT & PROJECT INFO ── -->
+        <!-- ── CLIENT &amp; PROJECT INFO ── -->
         <TextBlock Text="CLIENT &amp; PROJECT INFO" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,10"/>
 
         <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
@@ -51,34 +51,29 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- Client name -->
                 <StackPanel Grid.Column="0" Grid.Row="0">
                     <TextBlock Text="CLIENT NAME" Style="{StaticResource LabelStyle}"/>
                     <TextBox x:Name="TxtClientName" Style="{StaticResource TextBoxStyle}"
                              TextChanged="Preview_Changed"/>
                 </StackPanel>
 
-                <!-- Project name -->
                 <StackPanel Grid.Column="2" Grid.Row="0">
                     <TextBlock x:Name="LblProjectName" Text="PROJECT NAME" Style="{StaticResource LabelStyle}"/>
                     <TextBox x:Name="TxtProjectName" Style="{StaticResource TextBoxStyle}"
                              TextChanged="Preview_Changed"/>
                 </StackPanel>
 
-                <!-- Project number -->
                 <StackPanel Grid.Column="0" Grid.Row="2">
                     <TextBlock x:Name="LblProjectNumber" Text="PROJECT NUMBER" Style="{StaticResource LabelStyle}"/>
                     <TextBox x:Name="TxtProjectNumber" Style="{StaticResource TextBoxStyle}"
                              TextChanged="Preview_Changed"/>
                 </StackPanel>
 
-                <!-- Language -->
                 <StackPanel Grid.Column="2" Grid.Row="2">
                     <TextBlock Text="LANGUAGE" Style="{StaticResource LabelStyle}"/>
                     <StackPanel x:Name="CmbLanguage"/>
                 </StackPanel>
 
-                <!-- Title block -->
                 <StackPanel Grid.Column="0" Grid.Row="4">
                     <TextBlock Text="TITLE BLOCK" Style="{StaticResource LabelStyle}"/>
                     <StackPanel x:Name="CmbTitleBlock"/>
@@ -98,7 +93,6 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Tier 1 -->
             <Border x:Name="CardTier1" Grid.Column="0" Style="{StaticResource CardStyle}"
                     Cursor="Hand" MouseLeftButtonUp="TierCard_Click" Tag="1">
                 <StackPanel>
@@ -111,7 +105,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- Tier 2 (default) -->
             <Border x:Name="CardTier2" Grid.Column="2" Style="{StaticResource CardSelectedStyle}"
                     Cursor="Hand" MouseLeftButtonUp="TierCard_Click" Tag="2">
                 <StackPanel>
@@ -130,7 +123,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- Tier 3 -->
             <Border x:Name="CardTier3" Grid.Column="4" Style="{StaticResource CardStyle}"
                     Cursor="Hand" MouseLeftButtonUp="TierCard_Click" Tag="3">
                 <StackPanel>
@@ -198,11 +190,21 @@
 
         <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
             <StackPanel>
-                <TextBlock x:Name="TxtWorksetsStatus" Text="Loading…"
-                           FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
-                           Margin="0,0,0,6"/>
+                <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="User worksets in this project" FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"/>
+                    <StackPanel x:Name="WorksetActionContainer" Grid.Column="1"
+                                Orientation="Horizontal" VerticalAlignment="Center"/>
+                </Grid>
                 <StackPanel x:Name="WorksetsList"/>
-                <StackPanel x:Name="WorksetActionContainer" Margin="0,6,0,0"/>
+                <TextBlock x:Name="TxtWorksetsStatus" FontSize="11"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           TextWrapping="Wrap" Margin="0,4,0,0"/>
             </StackPanel>
         </Border>
 

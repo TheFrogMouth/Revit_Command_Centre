@@ -16,7 +16,8 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
     public partial class ProjectSetupView : UserControl
     {
         private readonly UIApplication _uiApp;
-        private int _selectedTier = 2;
+        private int  _selectedTier   = 2;
+        private bool _isProjectSaved;
 
         private readonly Picker _language   = new(new[] { "English", "Nederlands", "Français" });
         private readonly Picker _titleBlock = new(new[] { "Standard A1", "Standard A3", "Custom" });
@@ -24,26 +25,27 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
         private static readonly string[] TierLabels =
             { "", "Tier 1 — Standard", "Tier 2 — BIM Compliant", "Tier 3 — ISO 19650 Full" };
 
-        // Frozen brush for locked input fields
-        private static readonly SolidColorBrush LockedBg = MakeFrozenBrush(0xF0, 0xF0, 0xF0);
-        private static readonly SolidColorBrush Blue     = MakeFrozenBrush(0x18, 0x5F, 0xA5);
-        private static readonly SolidColorBrush BlueBg   = MakeFrozenBrush(0xE6, 0xF1, 0xFB);
-        private static readonly SolidColorBrush Grey     = MakeFrozenBrush(0x6B, 0x6B, 0x6B);
-        private static readonly SolidColorBrush Dark     = MakeFrozenBrush(0x1A, 0x1A, 0x1A);
-        private static readonly SolidColorBrush Green    = MakeFrozenBrush(0x22, 0xC5, 0x5E);
+        // Brushes kept local to avoid importing Autodesk.Revit.DB (which conflicts with WPF Color)
+        private static readonly SolidColorBrush LockedBg    = Frozen(0xFF, 0xF5, 0xF5, 0xF5);
+        private static readonly SolidColorBrush GreenFill   = Frozen(0xFF, 0x2E, 0xA4, 0x3E);
+        private static readonly SolidColorBrush GreyFill    = Frozen(0xFF, 0xC0, 0xC0, 0xC0);
+        private static readonly SolidColorBrush TxtPrimary  = Frozen(0xFF, 0x1A, 0x1A, 0x1A);
+        private static readonly SolidColorBrush TxtSecond   = Frozen(0xFF, 0x6B, 0x6B, 0x6B);
+        private static readonly SolidColorBrush BorderC     = Frozen(0x1E, 0x00, 0x00, 0x00);
+        private static readonly FontFamily      AppFont     = new("Segoe UI");
 
-        private static SolidColorBrush MakeFrozenBrush(byte r, byte g, byte b)
+        private static SolidColorBrush Frozen(byte a, byte r, byte g, byte b)
         {
-            var br = new SolidColorBrush(Color.FromRgb(r, g, b));
-            br.Freeze();
-            return br;
+            var brush = new SolidColorBrush(Color.FromArgb(a, r, g, b));
+            brush.Freeze();
+            return brush;
         }
-
-        private HashSet<string> _existingWorksetNames = new(StringComparer.OrdinalIgnoreCase);
 
         public ProjectSetupView(UIApplication uiApp)
         {
             _uiApp = uiApp;
+            var doc = uiApp.ActiveUIDocument?.Document;
+            _isProjectSaved = doc != null && !string.IsNullOrEmpty(doc.PathName);
             InitializeComponent();
             Loaded += OnLoaded;
         }
@@ -59,275 +61,225 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
 
             PickerHelper.Refresh(CmbLanguage,   _language,   UpdatePreview);
             PickerHelper.Refresh(CmbTitleBlock, _titleBlock, UpdatePreview);
+            ApplyTierStyles();
 
-            Autodesk.Revit.DB.Document? doc = null;
-            try { doc = _uiApp.ActiveUIDocument?.Document; } catch { }
-
-            if (doc != null && !string.IsNullOrEmpty(doc.PathName))
+            if (_isProjectSaved)
             {
-                // Populate identity fields from live document
-                TxtClientName.Text    = doc.ProjectInformation.ClientName;
-                TxtProjectName.Text   = doc.ProjectInformation.Name;
-                TxtProjectNumber.Text = doc.ProjectInformation.Number;
-
-                // Lock project identity — name and number uniquely identify the project
                 LockField(TxtProjectName,   LblProjectName);
                 LockField(TxtProjectNumber, LblProjectNumber);
 
-                // Restore picker state from extensible storage or sidecar JSON
-                try
+                var doc = _uiApp.ActiveUIDocument?.Document;
+                if (doc != null)
                 {
-                    var saved = ExtensibleStorageService.ReadConfig(doc);
-                    if (saved == null)
-                        saved = ConfigService.LoadConfig(doc.PathName);
-                    if (saved != null)
+                    TxtProjectName.Text   = doc.ProjectInformation.Name;
+                    TxtProjectNumber.Text = doc.ProjectInformation.Number;
+                    TxtClientName.Text    = doc.ProjectInformation.ClientName;
+
+                    // Restore picker state from saved config
+                    ProjectConfig? config = null;
+                    try { config = ExtensibleStorageService.ReadConfig(doc); } catch { }
+                    if (config == null && !string.IsNullOrEmpty(doc.PathName))
+                        config = ConfigService.LoadConfig(doc.PathName);
+                    if (config != null)
                     {
-                        SetPickerByValue(_language,   CmbLanguage,   saved.Language,   "English");
-                        SetPickerByValue(_titleBlock, CmbTitleBlock, saved.TitleBlock,  "Standard A1");
-                        _selectedTier = Math.Clamp(saved.ComplianceTier, 1, 3);
+                        SetPickerByValue(_language,   CmbLanguage,   config.Language,   "English");
+                        SetPickerByValue(_titleBlock, CmbTitleBlock, config.TitleBlock,  "Standard A1");
+                        _selectedTier = Math.Clamp(config.ComplianceTier, 1, 3);
                         ApplyTierStyles();
                     }
                 }
-                catch { }
             }
 
-            PopulateWorksets(doc);
+            PopulateWorksets();
             UpdatePreview();
         }
 
         private static void LockField(TextBox box, TextBlock label)
         {
-            box.IsReadOnly       = true;
-            box.IsHitTestVisible = false;
-            box.Background       = LockedBg;
-            box.Cursor           = Cursors.Arrow;
-            box.ToolTip          = "Locked — project identity cannot change after saving to disk.";
-            label.Text          += " (LOCKED)";
+            box.IsReadOnly        = true;
+            box.IsHitTestVisible  = false;
+            box.Background        = LockedBg;
+            box.Cursor            = Cursors.Arrow;
+            box.ToolTip           = "Locked — project identity cannot change after the project is saved to disk.";
+            label.Text            = label.Text + " (LOCKED)";
         }
 
-        // ──────────────────────────────────────  worksets  ──────────────────────────────────────────
+        // ───────────────────────────────────  worksets  ───────────────────────────────────
 
-        private void PopulateWorksets(Autodesk.Revit.DB.Document? doc)
+        private void PopulateWorksets()
         {
-            WorksetsList.Children.Clear();
             WorksetActionContainer.Children.Clear();
+            WorksetsList.Children.Clear();
 
+            var doc = _uiApp.ActiveUIDocument?.Document;
             if (doc == null)
             {
-                TxtWorksetsStatus.Text = "No project open. Worksets will appear once a project is active.";
+                TxtWorksetsStatus.Text = "No project open.";
                 return;
             }
 
             if (!doc.IsWorkshared)
             {
-                TxtWorksetsStatus.Text = "Worksharing is not enabled for this project.";
+                TxtWorksetsStatus.Text = "Worksharing is not enabled on this project.";
                 return;
             }
 
-            try
+            TxtWorksetsStatus.Text = string.Empty;
+            WorksetActionContainer.Children.Add(
+                PickerHelper.MakeButton("+ Add workset", ShowAddWorksetPanel_Click));
+
+            var worksets = new Autodesk.Revit.DB.FilteredElementCollector(doc)
+                .OfClass(typeof(Autodesk.Revit.DB.Workset))
+                .Cast<Autodesk.Revit.DB.Workset>()
+                .Where(ws => ws.Kind == Autodesk.Revit.DB.WorksetKind.UserCreated)
+                .OrderBy(ws => ws.Name)
+                .ToList();
+
+            if (worksets.Count == 0)
             {
-                var worksets = new Autodesk.Revit.DB.FilteredElementCollector(doc)
-                    .OfClass(typeof(Autodesk.Revit.DB.Workset))
-                    .Cast<Autodesk.Revit.DB.Workset>()
-                    .Where(ws => ws.Kind == Autodesk.Revit.DB.WorksetKind.UserCreated)
-                    .OrderBy(ws => ws.Name)
-                    .ToList();
-
-                _existingWorksetNames = new HashSet<string>(
-                    worksets.Select(ws => ws.Name), StringComparer.OrdinalIgnoreCase);
-
-                TxtWorksetsStatus.Text = worksets.Count == 0
-                    ? "No user worksets yet."
-                    : $"{worksets.Count} user workset{(worksets.Count == 1 ? "" : "s")}";
-
-                foreach (var ws in worksets)
-                    WorksetsList.Children.Add(BuildWorksetRow(ws.Name, ws.Owner, ws.IsOpen));
-
-                BuildAddWorksetButton();
+                TxtWorksetsStatus.Text = "No user worksets defined yet.";
+                return;
             }
-            catch (Exception ex)
-            {
-                TxtWorksetsStatus.Text = $"Could not read worksets: {ex.Message}";
-            }
+
+            foreach (var ws in worksets)
+                WorksetsList.Children.Add(BuildWorksetRow(ws.Name, ws.Owner, ws.IsOpen));
         }
 
-        private static UIElement BuildWorksetRow(string name, string owner, bool isOpen)
+        private UIElement BuildWorksetRow(string name, string owner, bool isOpen)
         {
+            var grid = new Grid { Margin = new Thickness(0, 5, 0, 5) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var nameTb = new TextBlock
+            {
+                Text = name, FontFamily = AppFont, FontSize = 12,
+                Foreground = TxtPrimary, VerticalAlignment = VerticalAlignment.Center
+            };
+            var ownerTb = new TextBlock
+            {
+                Text = string.IsNullOrEmpty(owner) ? "—" : owner,
+                FontFamily = AppFont, FontSize = 11, Foreground = TxtSecond,
+                VerticalAlignment = VerticalAlignment.Center
+            };
             var dot = new Ellipse
             {
-                Width             = 8,
-                Height            = 8,
-                Fill              = isOpen ? Green : new SolidColorBrush(Color.FromRgb(0x9B, 0x9B, 0x9B)),
+                Width = 8, Height = 8, Fill = isOpen ? GreenFill : GreyFill,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin            = new Thickness(0, 0, 8, 0),
-                ToolTip           = isOpen ? "Open in this session" : "Closed"
+                Margin = new Thickness(8, 0, 0, 0),
+                ToolTip = isOpen ? "Open" : "Closed"
             };
 
-            var lblName = new TextBlock
+            Grid.SetColumn(nameTb,  0);
+            Grid.SetColumn(ownerTb, 1);
+            Grid.SetColumn(dot,     2);
+            grid.Children.Add(nameTb);
+            grid.Children.Add(ownerTb);
+            grid.Children.Add(dot);
+
+            return new Border
             {
-                Text              = name,
-                FontSize          = 12,
-                FontWeight        = FontWeights.Medium,
-                Foreground        = Dark,
-                VerticalAlignment = VerticalAlignment.Center,
+                BorderBrush = BorderC, BorderThickness = new Thickness(0, 0, 0, 1),
+                Child = grid
             };
-
-            var lblOwner = new TextBlock
-            {
-                Text              = string.IsNullOrEmpty(owner) ? "—" : owner,
-                FontSize          = 10,
-                Foreground        = Grey,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin            = new Thickness(8, 0, 0, 0),
-            };
-
-            var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
-            row.Children.Add(dot);
-            row.Children.Add(lblName);
-            row.Children.Add(lblOwner);
-            return row;
         }
 
-        private void BuildAddWorksetButton()
+        private void ShowAddWorksetPanel_Click(object sender, MouseButtonEventArgs e)
         {
             WorksetActionContainer.Children.Clear();
 
-            var btn = new Border
-            {
-                Cursor              = Cursors.Hand,
-                Padding             = new Thickness(10, 5, 10, 5),
-                CornerRadius        = new CornerRadius(4),
-                BorderThickness     = new Thickness(1),
-                BorderBrush         = new SolidColorBrush(Color.FromArgb(0x3F, 0, 0, 0)),
-                Background          = Brushes.White,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Child               = new TextBlock { Text = "+ Add workset", FontSize = 11, Foreground = Blue }
-            };
-            btn.MouseLeftButtonUp += (_, _) =>
-            {
-                var available = AppSettingsService.Load().WorksetTemplates
-                    .Where(t => !_existingWorksetNames.Contains(t))
-                    .ToList();
-                ShowAddWorksetForm(available);
-            };
-            WorksetActionContainer.Children.Add(btn);
-        }
+            var panel = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
 
-        private void ShowAddWorksetForm(List<string> templates)
-        {
-            WorksetActionContainer.Children.Clear();
+            // Read worksets fresh so the chip list reflects the current doc state, not a stale cache
+            var settings = AppSettingsService.Load();
+            var doc      = _uiApp.ActiveUIDocument?.Document;
+            var existing = doc != null && doc.IsWorkshared
+                ? new Autodesk.Revit.DB.FilteredElementCollector(doc)
+                    .OfClass(typeof(Autodesk.Revit.DB.Workset))
+                    .Cast<Autodesk.Revit.DB.Workset>()
+                    .Select(ws => ws.Name)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            var panel = new StackPanel();
+            var available = settings.WorksetTemplates?.Where(t => !existing.Contains(t)).ToList()
+                            ?? new List<string>();
 
-            if (templates.Count > 0)
+            if (available.Count > 0)
             {
                 panel.Children.Add(new TextBlock
                 {
-                    Text       = "Quick add from template:",
-                    FontSize   = 10,
-                    Foreground = Grey,
-                    Margin     = new Thickness(0, 0, 0, 6)
+                    Text = "SUGGESTED", FontFamily = AppFont, FontSize = 10,
+                    FontWeight = FontWeights.SemiBold, Foreground = TxtSecond,
+                    Margin = new Thickness(0, 0, 0, 6)
                 });
-
-                var chipWrap = new WrapPanel { Margin = new Thickness(0, 0, 0, 10) };
-                foreach (var t in templates)
-                    chipWrap.Children.Add(BuildTemplateChip(t));
-                panel.Children.Add(chipWrap);
+                var chips = new WrapPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
+                foreach (var t in available)
+                {
+                    var capture = t;
+                    var chip = new Border
+                    {
+                        Margin = new Thickness(0, 0, 6, 6), Padding = new Thickness(10, 4, 10, 4),
+                        CornerRadius = new CornerRadius(4), Cursor = Cursors.Hand,
+                        BorderBrush = BorderC, BorderThickness = new Thickness(1),
+                        Background = Brushes.White,
+                        Child = new TextBlock { Text = capture, FontFamily = AppFont, FontSize = 11, Foreground = TxtPrimary }
+                    };
+                    chip.MouseLeftButtonUp += (s, ev) => RaiseAddWorkset(capture, panel);
+                    chips.Children.Add(chip);
+                }
+                panel.Children.Add(chips);
             }
 
             panel.Children.Add(new TextBlock
             {
-                Text       = "Custom name:",
-                FontSize   = 10,
-                Foreground = Grey,
-                Margin     = new Thickness(0, 0, 0, 4)
+                Text = available.Count > 0 ? "OR ENTER CUSTOM NAME" : "WORKSET NAME",
+                FontFamily = AppFont, FontSize = 10, FontWeight = FontWeights.SemiBold,
+                Foreground = TxtSecond, Margin = new Thickness(0, 0, 0, 6)
             });
 
-            var txtInput = new TextBox
+            var input = new TextBox
             {
-                FontSize                 = 12,
-                Height                   = 28,
-                Padding                  = new Thickness(6, 0, 6, 0),
+                Height = 30, Padding = new Thickness(8, 0, 8, 0),
                 VerticalContentAlignment = VerticalAlignment.Center,
-                BorderBrush              = new SolidColorBrush(Color.FromArgb(0x3F, 0, 0, 0)),
-                BorderThickness          = new Thickness(1),
-                Background               = Brushes.White,
-                Width                    = 200,
-                HorizontalAlignment      = HorizontalAlignment.Left,
+                FontFamily = AppFont, FontSize = 12, Margin = new Thickness(0, 0, 0, 8)
             };
+            panel.Children.Add(input);
 
-            var btnAdd = new Border
+            var btnRow = new StackPanel { Orientation = Orientation.Horizontal };
+            btnRow.Children.Add(PickerHelper.MakeButton("Add", (object s, MouseButtonEventArgs ev) =>
             {
-                Cursor          = Cursors.Hand,
-                Padding         = new Thickness(12, 0, 12, 0),
-                Height          = 28,
-                CornerRadius    = new CornerRadius(4),
-                Background      = Blue,
-                Margin          = new Thickness(6, 0, 0, 0),
-                Child           = new TextBlock { Text = "Add", FontSize = 11, Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center }
-            };
-
-            var btnCancel = new Border
+                var name = input.Text.Trim();
+                if (!string.IsNullOrEmpty(name)) RaiseAddWorkset(name, panel);
+            }));
+            btnRow.Children.Add(PickerHelper.MakeButton("Cancel", (object s, MouseButtonEventArgs ev) =>
             {
-                Cursor          = Cursors.Hand,
-                Padding         = new Thickness(10, 0, 10, 0),
-                Height          = 28,
-                CornerRadius    = new CornerRadius(4),
-                BorderThickness = new Thickness(1),
-                BorderBrush     = new SolidColorBrush(Color.FromArgb(0x3F, 0, 0, 0)),
-                Background      = Brushes.White,
-                Margin          = new Thickness(4, 0, 0, 0),
-                Child           = new TextBlock { Text = "Cancel", FontSize = 11, VerticalAlignment = VerticalAlignment.Center }
-            };
+                WorksetsList.Children.Remove(panel);
+                WorksetActionContainer.Children.Add(
+                    PickerHelper.MakeButton("+ Add workset", ShowAddWorksetPanel_Click));
+            }));
+            panel.Children.Add(btnRow);
 
-            var inputRow = new StackPanel { Orientation = Orientation.Horizontal };
-            inputRow.Children.Add(txtInput);
-            inputRow.Children.Add(btnAdd);
-            inputRow.Children.Add(btnCancel);
-            panel.Children.Add(inputRow);
-
-            btnAdd.MouseLeftButtonUp    += (_, _) => RaiseAddWorkset(txtInput.Text.Trim());
-            btnCancel.MouseLeftButtonUp += (_, _) => BuildAddWorksetButton();
-
-            WorksetActionContainer.Children.Add(panel);
+            WorksetsList.Children.Add(panel);
         }
 
-        private Border BuildTemplateChip(string name)
+        private void RaiseAddWorkset(string name, StackPanel addPanel)
         {
-            var chip = new Border
-            {
-                Cursor          = Cursors.Hand,
-                Padding         = new Thickness(8, 4, 8, 4),
-                Margin          = new Thickness(0, 0, 6, 6),
-                CornerRadius    = new CornerRadius(12),
-                BorderThickness = new Thickness(1),
-                BorderBrush     = Blue,
-                Background      = BlueBg,
-                Child           = new TextBlock { Text = name, FontSize = 10, Foreground = Blue }
-            };
-            chip.MouseLeftButtonUp += (_, _) => RaiseAddWorkset(name);
-            return chip;
-        }
-
-        private void RaiseAddWorkset(string name)
-        {
-            if (string.IsNullOrWhiteSpace(name)) return;
             if (App.AddWorksetHandler == null || App.AddWorksetEvent == null) return;
 
             App.AddWorksetHandler.WorksetName = name;
-            // If a previous event is still pending the handler's WorksetName must not be
-            // overwritten — bail out silently so the user retries after Revit processes it.
+            // Check Raise() return: if Pending, another event is in flight and WorksetName must
+            // not be overwritten — bail out so the user retries after Revit drains the queue.
             if (App.AddWorksetEvent.Raise() != Autodesk.Revit.UI.ExternalEventRequest.Accepted)
                 return;
 
-            // Optimistic row only — intentionally do NOT add to _existingWorksetNames so
-            // the template chip stays available if Revit rejects the creation (duplicate
-            // name, worksharing not enabled, read-only doc, etc.).
-            WorksetsList.Children.Add(BuildWorksetRow(name, string.Empty, true));
-            BuildAddWorksetButton();
+            WorksetsList.Children.Remove(addPanel);
+            WorksetActionContainer.Children.Clear();
+            WorksetActionContainer.Children.Add(
+                PickerHelper.MakeButton("+ Add workset", ShowAddWorksetPanel_Click));
         }
 
-        // ──────────────────────────────────────  browse  ────────────────────────────────────────────
+        // ──────────────────────────────────  browse  ──────────────────────────────────────────
 
         private void BrowseTitleBlockFolder_Click(object sender, MouseButtonEventArgs e)
         {
@@ -341,8 +293,6 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
             settings.TitleBlockFolder = dlg.FolderName;
             AppSettingsService.Save(settings);
         }
-
-        // ──────────────────────────────────────  tier card selection  ───────────────────────────────
 
         private void TierCard_Click(object sender, MouseButtonEventArgs e)
         {
@@ -358,13 +308,10 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
         {
             var normal   = (Style)FindResource("CardStyle");
             var selected = (Style)FindResource("CardSelectedStyle");
-
             CardTier1.Style = _selectedTier == 1 ? selected : normal;
             CardTier2.Style = _selectedTier == 2 ? selected : normal;
             CardTier3.Style = _selectedTier == 3 ? selected : normal;
         }
-
-        // ──────────────────────────────────────  live preview  ──────────────────────────────────────
 
         private void Preview_Changed(object sender, TextChangedEventArgs e) => UpdatePreview();
 
@@ -377,26 +324,25 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
             PreviewTier.Text     = TierLabels[_selectedTier];
         }
 
-        // ──────────────────────────────────────  public API  ────────────────────────────────────────
+        // ──────────────────────────────────  public API  ──────────────────────────────────────────
 
         public void LoadConfig(ProjectConfig config)
         {
             TxtClientName.Text = config.ClientName;
             // Respect the lock: project identity must not be overwritten once saved to disk
-            if (!TxtProjectName.IsReadOnly)
+            if (!_isProjectSaved)
+            {
                 TxtProjectName.Text   = config.ProjectName;
-            if (!TxtProjectNumber.IsReadOnly)
                 TxtProjectNumber.Text = config.ProjectNumber;
-
+            }
             SetPickerByValue(_language,   CmbLanguage,   config.Language,   "English");
             SetPickerByValue(_titleBlock, CmbTitleBlock, config.TitleBlock,  "Standard A1");
-
             _selectedTier = Math.Clamp(config.ComplianceTier, 1, 3);
             ApplyTierStyles();
             UpdatePreview();
         }
 
-        public ProjectConfig BuildConfig() => new ProjectConfig
+        public ProjectConfig BuildConfig() => new()
         {
             ClientName     = TxtClientName.Text.Trim(),
             ProjectName    = TxtProjectName.Text.Trim(),

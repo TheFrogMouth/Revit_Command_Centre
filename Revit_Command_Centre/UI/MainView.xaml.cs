@@ -271,10 +271,6 @@ namespace Revit_Command_Centre.UI
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            // Construction and Loaded are called by Revit during document loading — a time
-            // when the Revit API is unsafe to call and documents are not in a stable state.
-            // Do NOT touch UIApplication, Document, or instantiate module views here.
-            // All of that is deferred to Activate(), called only from LaunchCommand.Execute.
             _txtDocumentName.Text  = _cachedDocTitle;
             _txtProjectNumber.Text = _cachedProjNumber;
             _docStatusDot.Fill     = WarningAmber;
@@ -382,8 +378,6 @@ namespace Revit_Command_Centre.UI
 
         private void AddTopbarButton(string label, bool isSecondary, RoutedEventHandler onClick)
         {
-            // Use Border+TextBlock instead of Button — WPF Button's default ControlTemplate
-            // uses D3D9 gradients that crash on AMD RX 9060 XT inside Revit.
             var btn = new Border
             {
                 Height          = 32,
@@ -464,7 +458,11 @@ namespace Revit_Command_Centre.UI
             App.ApplyConfigHandler.RvtFilePath      = _cachedDocPath;
             App.ApplyConfigHandler.TitleBlockFolder = AppSettingsService.Load().TitleBlockFolder;
             App.ApplyConfigHandler.SaveAsPath       = saveAsPath;
-            App.ApplyConfigEvent.Raise();
+
+            // DIAGNOSTIC — capture and display the Raise() result
+            var req = App.ApplyConfigEvent.Raise();
+            MessageBox.Show($"ExternalEvent.Raise() returned: {req}",
+                "BIM Command Centre — DEBUG", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private static string SanitizeFileName(string name)

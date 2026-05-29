@@ -5,6 +5,10 @@ using Autodesk.Revit.UI;
 
 namespace Revit_Command_Centre.Services
 {
+    /// <summary>
+    /// Creates a named user workset in the active workshared document.
+    /// Raised by the Project Setup worksets panel via ExternalEvent.
+    /// </summary>
     public class AddWorksetEventHandler : IExternalEventHandler
     {
         public string? WorksetName { get; set; }
@@ -13,20 +17,17 @@ namespace Revit_Command_Centre.Services
         {
             if (string.IsNullOrWhiteSpace(WorksetName)) return;
 
+            var doc = app.ActiveUIDocument?.Document;
+            if (doc == null || !doc.IsWorkshared)
+            {
+                TaskDialog.Show("BIM Command Centre", "Worksharing is not enabled on this project.");
+                return;
+            }
+
             try
             {
-                var doc = app.ActiveUIDocument?.Document;
-                if (doc == null)
-                {
-                    TaskDialog.Show("BIM Command Centre", "No active document.");
-                    return;
-                }
-                if (!doc.IsWorkshared)
-                {
-                    TaskDialog.Show("BIM Command Centre", "Worksharing is not enabled for this project.");
-                    return;
-                }
-
+                // Filter to UserCreated worksets so system worksets (e.g. "Shared Levels & Grids")
+                // don't generate a misleading "already exists" message.
                 bool exists = new FilteredElementCollector(doc)
                     .OfClass(typeof(Workset))
                     .Cast<Workset>()
@@ -35,7 +36,7 @@ namespace Revit_Command_Centre.Services
 
                 if (exists)
                 {
-                    TaskDialog.Show("BIM Command Centre", $"Workset \"{WorksetName}\" already exists.");
+                    TaskDialog.Show("BIM Command Centre", $"A workset named \"{WorksetName}\" already exists.");
                     return;
                 }
 
@@ -44,11 +45,12 @@ namespace Revit_Command_Centre.Services
                 Workset.Create(doc, WorksetName);
                 tx.Commit();
 
-                TaskDialog.Show("BIM Command Centre", $"Workset \"{WorksetName}\" created successfully.");
+                TaskDialog.Show("BIM Command Centre",
+                    $"Workset \"{WorksetName}\" created.\nNavigate back to Project Setup to refresh the list.");
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("BIM Command Centre", $"Failed to create workset:\n\n{ex.Message}");
+                TaskDialog.Show("BIM Command Centre", $"Failed to create workset:\n{ex.Message}");
             }
         }
 
