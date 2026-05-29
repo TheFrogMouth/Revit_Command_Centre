@@ -20,6 +20,18 @@ namespace Revit_Command_Centre.Services
 
         public void Execute(UIApplication app)
         {
+            try
+            {
+                ExecuteCore(app);
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("BIM Command Centre", $"Failed to generate sheets:\n\n{ex.Message}");
+            }
+        }
+
+        private void ExecuteCore(UIApplication app)
+        {
             Document? doc = app.ActiveUIDocument?.Document;
             if (doc == null)
             {

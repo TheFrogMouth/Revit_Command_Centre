@@ -315,10 +315,14 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
             if (App.AddWorksetHandler == null || App.AddWorksetEvent == null) return;
 
             App.AddWorksetHandler.WorksetName = name;
-            App.AddWorksetEvent.Raise();
+            // If a previous event is still pending the handler's WorksetName must not be
+            // overwritten — bail out silently so the user retries after Revit processes it.
+            if (App.AddWorksetEvent.Raise() != Autodesk.Revit.UI.ExternalEventRequest.Accepted)
+                return;
 
-            // Optimistic UI update — Revit confirms (or rejects) asynchronously via TaskDialog
-            _existingWorksetNames.Add(name);
+            // Optimistic row only — intentionally do NOT add to _existingWorksetNames so
+            // the template chip stays available if Revit rejects the creation (duplicate
+            // name, worksharing not enabled, read-only doc, etc.).
             WorksetsList.Children.Add(BuildWorksetRow(name, string.Empty, true));
             BuildAddWorksetButton();
         }
@@ -377,9 +381,12 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
 
         public void LoadConfig(ProjectConfig config)
         {
-            TxtClientName.Text    = config.ClientName;
-            TxtProjectName.Text   = config.ProjectName;
-            TxtProjectNumber.Text = config.ProjectNumber;
+            TxtClientName.Text = config.ClientName;
+            // Respect the lock: project identity must not be overwritten once saved to disk
+            if (!TxtProjectName.IsReadOnly)
+                TxtProjectName.Text   = config.ProjectName;
+            if (!TxtProjectNumber.IsReadOnly)
+                TxtProjectNumber.Text = config.ProjectNumber;
 
             SetPickerByValue(_language,   CmbLanguage,   config.Language,   "English");
             SetPickerByValue(_titleBlock, CmbTitleBlock, config.TitleBlock,  "Standard A1");
