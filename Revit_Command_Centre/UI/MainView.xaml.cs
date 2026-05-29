@@ -423,15 +423,13 @@ namespace Revit_Command_Centre.UI
             {
                 ProjectConfig? config = ConfigService.LoadConfig(dlg.FileName.Replace(".bimconfig.json", ".rvt"));
                 if (config == null)
-                    MessageBox.Show("No config found for this file.", "BIM Command Centre",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    Autodesk.Revit.UI.TaskDialog.Show("BIM Command Centre", "No config found for this file.");
                 else if (_contentArea.Content is ProjectSetupView psv)
                     psv.LoadConfig(config);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to load config:\n{ex.Message}", "BIM Command Centre",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                Autodesk.Revit.UI.TaskDialog.Show("BIM Command Centre", $"Failed to load config:\n{ex.Message}");
             }
         }
 
@@ -500,9 +498,8 @@ namespace Revit_Command_Centre.UI
 
         private void ProjectChip_Click(object sender, MouseButtonEventArgs e)
         {
-            MessageBox.Show(
-                $"Active document: {_cachedDocTitle}\nPath: {(string.IsNullOrEmpty(_cachedDocPath) ? "(unsaved)" : _cachedDocPath)}",
-                "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
+            Autodesk.Revit.UI.TaskDialog.Show("BIM Command Centre",
+                $"Active document: {_cachedDocTitle}\nPath: {(string.IsNullOrEmpty(_cachedDocPath) ? "(unsaved)" : _cachedDocPath)}");
         }
     }
 }

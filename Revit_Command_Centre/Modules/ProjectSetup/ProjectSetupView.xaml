@@ -60,14 +60,14 @@
 
                 <!-- Project name -->
                 <StackPanel Grid.Column="2" Grid.Row="0">
-                    <TextBlock Text="PROJECT NAME" Style="{StaticResource LabelStyle}"/>
+                    <TextBlock x:Name="LblProjectName" Text="PROJECT NAME" Style="{StaticResource LabelStyle}"/>
                     <TextBox x:Name="TxtProjectName" Style="{StaticResource TextBoxStyle}"
                              TextChanged="Preview_Changed"/>
                 </StackPanel>
 
                 <!-- Project number -->
                 <StackPanel Grid.Column="0" Grid.Row="2">
-                    <TextBlock Text="PROJECT NUMBER" Style="{StaticResource LabelStyle}"/>
+                    <TextBlock x:Name="LblProjectNumber" Text="PROJECT NUMBER" Style="{StaticResource LabelStyle}"/>
                     <TextBox x:Name="TxtProjectNumber" Style="{StaticResource TextBoxStyle}"
                              TextChanged="Preview_Changed"/>
                 </StackPanel>
@@ -191,6 +191,19 @@
                 <TextBlock x:Name="PreviewTier" Grid.Column="1" Grid.Row="8"
                            FontSize="12" Foreground="{StaticResource PrimaryBlueBrush}" FontWeight="Medium"/>
             </Grid>
+        </Border>
+
+        <!-- ── WORKSETS ── -->
+        <TextBlock Text="WORKSETS" Style="{StaticResource SectionHeaderStyle}" Margin="0,14,0,10"/>
+
+        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+            <StackPanel>
+                <TextBlock x:Name="TxtWorksetsStatus" Text="Loading…"
+                           FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,0,0,6"/>
+                <StackPanel x:Name="WorksetsList"/>
+                <StackPanel x:Name="WorksetActionContainer" Margin="0,6,0,0"/>
+            </StackPanel>
         </Border>
 
     </StackPanel>

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
@@ -14,6 +15,11 @@ namespace Revit_Command_Centre.Services
         public string DefaultFamilyNamePrefix   { get; set; } = string.Empty;
         public string FamilyTemplateFolder      { get; set; } = string.Empty;
         public string TitleBlockFolder          { get; set; } = string.Empty;
+
+        public List<string> WorksetTemplates { get; set; } = new()
+        {
+            "Architecture", "Structure", "MEP", "Shared Levels & Grids", "Links"
+        };
     }
 
     public static class AppSettingsService

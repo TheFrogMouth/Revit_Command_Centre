@@ -1,6 +1,5 @@
 using System.IO;
 using System.Linq;
-using System.Windows;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Revit_Command_Centre.Models;
@@ -29,9 +28,8 @@ namespace Revit_Command_Centre.Services
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"Failed to apply project configuration:\n\n{ex.Message}",
-                    "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Error);
+                TaskDialog.Show("BIM Command Centre",
+                    $"Failed to apply project configuration:\n\n{ex.Message}");
             }
         }
 
@@ -44,9 +42,8 @@ namespace Revit_Command_Centre.Services
                 // No project open — create a fresh one
                 if (string.IsNullOrEmpty(SaveAsPath))
                 {
-                    MessageBox.Show(
-                        "No project is open. Please choose a save location and try again.",
-                        "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    TaskDialog.Show("BIM Command Centre",
+                        "No project is open. Please choose a save location and try again.");
                     return;
                 }
 
@@ -64,17 +61,13 @@ namespace Revit_Command_Centre.Services
 
                 if (doc == null)
                 {
-                    MessageBox.Show(
-                        "Failed to create a new Revit project.",
-                        "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Error);
+                    TaskDialog.Show("BIM Command Centre", "Failed to create a new Revit project.");
                     return;
                 }
             }
             else if (doc.IsReadOnly)
             {
-                MessageBox.Show(
-                    "The active document is read-only.",
-                    "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
+                TaskDialog.Show("BIM Command Centre", "The active document is read-only.");
                 return;
             }
 
@@ -116,9 +109,8 @@ namespace Revit_Command_Centre.Services
                 ? $"\nTitle block loaded: {Path.GetFileName(rfaPath)}"
                 : (string.IsNullOrEmpty(TitleBlockFolder) ? "" : "\nNo matching title block RFA found in the specified folder.");
 
-            MessageBox.Show(
-                $"Project information updated in Revit and config saved.{tbMsg}{saveMsg}",
-                "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
+            TaskDialog.Show("BIM Command Centre",
+                $"Project information updated in Revit and config saved.{tbMsg}{saveMsg}");
         }
 
         public string GetName() => "BIM Command Centre — Apply Config";
