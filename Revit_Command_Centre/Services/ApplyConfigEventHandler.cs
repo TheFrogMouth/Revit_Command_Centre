@@ -23,6 +23,20 @@ namespace Revit_Command_Centre.Services
         {
             if (PendingConfig == null) return;
 
+            try
+            {
+                ExecuteCore(app);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to apply project configuration:\n\n{ex.Message}",
+                    "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void ExecuteCore(UIApplication app)
+        {
             Document? doc = app.ActiveUIDocument?.Document;
 
             if (doc == null)
@@ -71,16 +85,17 @@ namespace Revit_Command_Centre.Services
             using var tx = new Transaction(doc, "Apply BIM project config");
             tx.Start();
 
-            // Project information
             doc.ProjectInformation.Name       = PendingConfig.ProjectName;
             doc.ProjectInformation.Number     = PendingConfig.ProjectNumber;
             doc.ProjectInformation.ClientName = PendingConfig.ClientName;
 
-            // Load title block family if a matching RFA was found
             if (rfaPath != null)
                 doc.LoadFamily(rfaPath, out _);
 
-            ExtensibleStorageService.WriteConfig(doc, PendingConfig);
+            // Non-critical: extensible storage failure must not block the save
+            try { ExtensibleStorageService.WriteConfig(doc, PendingConfig); }
+            catch { /* config can be re-applied; don't abort the transaction */ }
+
             tx.Commit();
 
             // SaveAs / rename the Revit file if a path was provided
@@ -90,11 +105,11 @@ namespace Revit_Command_Centre.Services
                 var opts = new SaveAsOptions { OverwriteExistingFile = true };
                 doc.SaveAs(SaveAsPath, opts);
                 saveMsg = $"\nProject saved as: {Path.GetFileName(SaveAsPath)}";
-                ConfigService.SaveConfig(PendingConfig, SaveAsPath);
+                try { ConfigService.SaveConfig(PendingConfig, SaveAsPath); } catch { }
             }
             else if (!string.IsNullOrEmpty(RvtFilePath))
             {
-                ConfigService.SaveConfig(PendingConfig, RvtFilePath);
+                try { ConfigService.SaveConfig(PendingConfig, RvtFilePath); } catch { }
             }
 
             string tbMsg = rfaPath != null

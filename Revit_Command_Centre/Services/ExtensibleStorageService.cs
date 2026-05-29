@@ -13,9 +13,9 @@ namespace Revit_Command_Centre.Services
     /// </summary>
     public static class ExtensibleStorageService
     {
-        private static readonly Guid SchemaGuid = new Guid("A4B5C6D7-E8F9-0A1B-2C3D-4E5F60718293");
-        private const string SchemaName = "BIMToolsProjectConfig";
-        private const string VendorId = "BMTOOLS";
+        private static readonly Guid SchemaGuid = new Guid("F2D3E4A5-B6C7-4D8E-9F0A-1B2C3D4E5F60");
+        private const string SchemaName = "BIMCommandCentreProjectConfig";
+        private const string VendorId = "FROGMOUTH";
         private const string FieldName = "ConfigJson";
 
         /// <summary>
