@@ -26,10 +26,13 @@ namespace Revit_Command_Centre.Services
 
             try
             {
+                // Filter to UserCreated worksets so system worksets (e.g. "Shared Levels & Grids")
+                // don't generate a misleading "already exists" message.
                 bool exists = new FilteredElementCollector(doc)
                     .OfClass(typeof(Workset))
                     .Cast<Workset>()
-                    .Any(ws => ws.Name.Equals(WorksetName, StringComparison.OrdinalIgnoreCase));
+                    .Any(ws => ws.Kind == WorksetKind.UserCreated &&
+                               ws.Name.Equals(WorksetName, StringComparison.OrdinalIgnoreCase));
 
                 if (exists)
                 {

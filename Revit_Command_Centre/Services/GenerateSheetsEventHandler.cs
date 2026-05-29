@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Windows;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 
@@ -21,11 +20,22 @@ namespace Revit_Command_Centre.Services
 
         public void Execute(UIApplication app)
         {
+            try
+            {
+                ExecuteCore(app);
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("BIM Command Centre", $"Failed to generate sheets:\n\n{ex.Message}");
+            }
+        }
+
+        private void ExecuteCore(UIApplication app)
+        {
             Document? doc = app.ActiveUIDocument?.Document;
             if (doc == null)
             {
-                MessageBox.Show("No project is open. Open a Revit project and try again.",
-                    "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
+                TaskDialog.Show("BIM Command Centre", "No project is open. Open a Revit project and try again.");
                 return;
             }
 
@@ -86,7 +96,7 @@ namespace Revit_Command_Centre.Services
             if (skipped > 0) msg += $"\n{skipped} skipped (sheet numbers already exist).";
             if (tbSymbol == null) msg += "\nNo title block found in project — sheets created without one. Load a title block via Save & Apply first.";
 
-            MessageBox.Show(msg, "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
+            TaskDialog.Show("BIM Command Centre", msg);
         }
 
         public string GetName() => "BIM Command Centre — Generate Sheets";

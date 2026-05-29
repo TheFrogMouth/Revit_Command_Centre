@@ -85,13 +85,25 @@ namespace Revit_Command_Centre.Services
                 tx.Commit();
             }
 
+            // SaveAs / rename the Revit file if a path was provided
             string saveMsg = string.Empty;
             if (!string.IsNullOrEmpty(SaveAsPath))
             {
-                var opts = new SaveAsOptions { OverwriteExistingFile = true };
-                doc.SaveAs(SaveAsPath, opts);
-                saveMsg = $"\nProject saved as: {Path.GetFileName(SaveAsPath)}";
-                try { ConfigService.SaveConfig(PendingConfig, SaveAsPath); } catch { }
+                try
+                {
+                    doc.SaveAs(SaveAsPath, new SaveAsOptions { OverwriteExistingFile = true });
+                    saveMsg = $"\nProject saved as: {Path.GetFileName(SaveAsPath)}";
+                    try { ConfigService.SaveConfig(PendingConfig, SaveAsPath); } catch { }
+                }
+                catch (Exception saveEx)
+                {
+                    // Transaction was already committed — project info is applied in memory.
+                    // Tell the user clearly so they can save manually rather than seeing a
+                    // generic "Failed to apply config" message that implies nothing was done.
+                    TaskDialog.Show("BIM Command Centre",
+                        $"Project information was applied in Revit, but the file could not be saved to disk:\n\n{saveEx.Message}\n\nPlease save the project manually (File > Save As).");
+                    return;
+                }
             }
             else if (!string.IsNullOrEmpty(RvtFilePath))
             {

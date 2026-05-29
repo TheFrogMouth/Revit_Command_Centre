@@ -25,7 +25,7 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
         private static readonly string[] TierLabels =
             { "", "Tier 1 — Standard", "Tier 2 — BIM Compliant", "Tier 3 — ISO 19650 Full" };
 
-        // Brushes kept local to avoid importing Autodesk.Revit.DB (which conflicts with WPF Grid)
+        // Brushes kept local to avoid importing Autodesk.Revit.DB (which conflicts with WPF Color)
         private static readonly SolidColorBrush LockedBg    = Frozen(0xFF, 0xF5, 0xF5, 0xF5);
         private static readonly SolidColorBrush GreenFill   = Frozen(0xFF, 0x2E, 0xA4, 0x3E);
         private static readonly SolidColorBrush GreyFill    = Frozen(0xFF, 0xC0, 0xC0, 0xC0);
@@ -191,7 +191,7 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
 
             var panel = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
 
-            // Template chips (exclude worksets already in the project)
+            // Read worksets fresh so the chip list reflects the current doc state, not a stale cache
             var settings = AppSettingsService.Load();
             var doc      = _uiApp.ActiveUIDocument?.Document;
             var existing = doc != null && doc.IsWorkshared
@@ -266,15 +266,20 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
         private void RaiseAddWorkset(string name, StackPanel addPanel)
         {
             if (App.AddWorksetHandler == null || App.AddWorksetEvent == null) return;
+
             App.AddWorksetHandler.WorksetName = name;
-            App.AddWorksetEvent.Raise();
+            // Check Raise() return: if Pending, another event is in flight and WorksetName must
+            // not be overwritten — bail out so the user retries after Revit drains the queue.
+            if (App.AddWorksetEvent.Raise() != Autodesk.Revit.UI.ExternalEventRequest.Accepted)
+                return;
+
             WorksetsList.Children.Remove(addPanel);
             WorksetActionContainer.Children.Clear();
             WorksetActionContainer.Children.Add(
                 PickerHelper.MakeButton("+ Add workset", ShowAddWorksetPanel_Click));
         }
 
-        // ────────────────────────────────  existing methods  ────────────────────────────────
+        // ──────────────────────────────────  browse  ──────────────────────────────────────────
 
         private void BrowseTitleBlockFolder_Click(object sender, MouseButtonEventArgs e)
         {
@@ -319,9 +324,12 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
             PreviewTier.Text     = TierLabels[_selectedTier];
         }
 
+        // ──────────────────────────────────  public API  ──────────────────────────────────────────
+
         public void LoadConfig(ProjectConfig config)
         {
             TxtClientName.Text = config.ClientName;
+            // Respect the lock: project identity must not be overwritten once saved to disk
             if (!_isProjectSaved)
             {
                 TxtProjectName.Text   = config.ProjectName;
