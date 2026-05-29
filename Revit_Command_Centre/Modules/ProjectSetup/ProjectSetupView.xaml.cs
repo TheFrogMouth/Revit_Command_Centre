@@ -275,7 +275,7 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
             var worksets = new Autodesk.Revit.DB.FilteredElementCollector(doc)
                 .OfClass(typeof(Autodesk.Revit.DB.Workset))
                 .Cast<Autodesk.Revit.DB.Workset>()
-                .Where(ws => ws.Kind == Autodesk.Revit.DB.WorksetKind.UserCreated)
+                .Where(ws => ws.Kind == Autodesk.Revit.DB.WorksetKind.UserWorkset)
                 .OrderBy(ws => ws.Name)
                 .ToList();
 

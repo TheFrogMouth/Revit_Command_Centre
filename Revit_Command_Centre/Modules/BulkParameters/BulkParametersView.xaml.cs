@@ -8,6 +8,8 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using Autodesk.Revit.DB;
+using Binding    = System.Windows.Data.Binding;
+using Visibility = System.Windows.Visibility;
 using Autodesk.Revit.UI;
 using Revit_Command_Centre.Services;
 using Revit_Command_Centre.UI;
