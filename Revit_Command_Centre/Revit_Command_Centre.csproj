@@ -32,4 +32,17 @@
           DestinationFolder="$(APPDATA)\Autodesk\Revit\Addins\2025\"
           ContinueOnError="true" />
   </Target>
+
+  <!--
+    Sign the deployed DLL so Revit's security dialog shows:
+      Publisher : The Frogmouth
+      Issuer    : Allan Waller
+    Runs only on Windows. Creates the self-signed cert chain once; reuses it on
+    subsequent builds. The script is in the solution root: sign-addin.ps1
+  -->
+  <Target Name="SignAddin" AfterTargets="DeployToRevit" Condition="'$(OS)' == 'Windows_NT'">
+    <Exec
+      Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(SolutionDir)sign-addin.ps1&quot; &quot;$(APPDATA)\Autodesk\Revit\Addins\2025\$(AssemblyName).dll&quot;"
+      ContinueOnError="true" />
+  </Target>
 </Project>
