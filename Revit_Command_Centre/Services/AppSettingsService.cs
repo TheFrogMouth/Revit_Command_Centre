@@ -13,6 +13,7 @@ namespace Revit_Command_Centre.Services
         public string DefaultFamilyOutputFolder { get; set; } = string.Empty;
         public string DefaultFamilyNamePrefix   { get; set; } = string.Empty;
         public string FamilyTemplateFolder      { get; set; } = string.Empty;
+        public string TitleBlockFolder          { get; set; } = string.Empty;
     }
 
     public static class AppSettingsService

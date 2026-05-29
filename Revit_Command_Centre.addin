@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RevitAddIns>
   <AddIn Type="Application">
-    <Name>BIM Tools</Name>
+    <Name>BIM Command Centre</Name>
     <Assembly>Revit_Command_Centre.dll</Assembly>
     <AddInId>7F2C8A1B-3D4E-4F5A-8B9C-0D1E2F3A4B5C</AddInId>
     <FullClassName>Revit_Command_Centre.App</FullClassName>
-    <VendorId>BMTOOLS</VendorId>
-    <VendorDescription>BIM Tools</VendorDescription>
+    <VendorId>FROGMOUTH</VendorId>
+    <VendorDescription>The Frogmouth</VendorDescription>
   </AddIn>
 </RevitAddIns>

@@ -5,7 +5,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
-using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Revit_Command_Centre.Models;
 using Revit_Command_Centre.Modules.CreateFamilies;
@@ -350,6 +349,7 @@ namespace Revit_Command_Centre.UI
         private UIElement CreateSheetsView()
         {
             if (_uiApp == null) return NotActivatedPlaceholder();
+            AddTopbarButton("Generate sheets", isSecondary: false, onClick: Sheets_Generate);
             return new SheetsView(_uiApp);
         }
 
@@ -438,42 +438,47 @@ namespace Revit_Command_Centre.UI
         private void ProjectSetup_SaveAndApply(object sender, RoutedEventArgs e)
         {
             if (_contentArea.Content is not ProjectSetupView psv) return;
+            if (App.ApplyConfigHandler == null || App.ApplyConfigEvent == null) return;
 
-            try
+            var config = psv.BuildConfig();
+
+            // Offer to save/rename if the project has never been saved to disk
+            string? saveAsPath = null;
+            if (string.IsNullOrEmpty(_cachedDocPath))
             {
-                ProjectConfig config = psv.BuildConfig();
-                Document? doc = _uiApp?.ActiveUIDocument?.Document;
-
-                if (doc != null && !doc.IsReadOnly)
+                string suggested = SanitizeFileName(
+                    $"{config.ProjectNumber} - {config.ProjectName}.rvt".Trim(' ', '-', ' '));
+                var dlg = new Microsoft.Win32.SaveFileDialog
                 {
-                    using var tx = new Transaction(doc, "Apply BIM project config");
-                    tx.Start();
-                    doc.ProjectInformation.Name       = config.ProjectName;
-                    doc.ProjectInformation.Number     = config.ProjectNumber;
-                    doc.ProjectInformation.ClientName = config.ClientName;
-                    ExtensibleStorageService.WriteConfig(doc, config);
-                    tx.Commit();
-
-                    if (!string.IsNullOrEmpty(_cachedDocPath))
-                        ConfigService.SaveConfig(config, _cachedDocPath);
-
-                    MessageBox.Show("Project information updated in Revit and config saved.", "BIM Command Centre",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                else
-                {
-                    MessageBox.Show(
-                        doc == null
-                            ? "No project is open. Open a Revit project and try again."
-                            : "The active document is read-only and cannot be modified.",
-                        "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
-                }
+                    Title    = "Save Revit Project As",
+                    Filter   = "Revit Project (*.rvt)|*.rvt",
+                    FileName = string.IsNullOrWhiteSpace(suggested) ? "Project.rvt" : suggested
+                };
+                if (dlg.ShowDialog() != true)
+                    return;
+                saveAsPath = dlg.FileName;
+                _cachedDocPath  = dlg.FileName;
+                _cachedDocTitle = System.IO.Path.GetFileNameWithoutExtension(dlg.FileName);
+                _txtDocumentName.Text = _cachedDocTitle;
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Failed to apply config:\n{ex.Message}", "BIM Command Centre",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+
+            App.ApplyConfigHandler.PendingConfig    = config;
+            App.ApplyConfigHandler.RvtFilePath      = _cachedDocPath;
+            App.ApplyConfigHandler.TitleBlockFolder = AppSettingsService.Load().TitleBlockFolder;
+            App.ApplyConfigHandler.SaveAsPath       = saveAsPath;
+            App.ApplyConfigEvent.Raise();
+        }
+
+        private static string SanitizeFileName(string name)
+        {
+            foreach (char c in System.IO.Path.GetInvalidFileNameChars())
+                name = name.Replace(c, '_');
+            return name;
+        }
+
+        private void Sheets_Generate(object sender, RoutedEventArgs e)
+        {
+            if (_contentArea.Content is SheetsView sv) sv.GenerateSheets();
         }
 
         private void UpdateFamilies_Validate(object sender, RoutedEventArgs e)

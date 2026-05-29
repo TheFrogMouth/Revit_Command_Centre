@@ -20,6 +20,38 @@
             <!-- Discipline toggle cards are generated in code-behind -->
         </WrapPanel>
 
+        <!-- ── FLOORS / LEVELS ── -->
+        <TextBlock Text="FLOORS / LEVELS" Style="{StaticResource SectionHeaderStyle}" Margin="0,4,0,10"/>
+
+        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <!-- Above ground counter -->
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="ABOVE GROUND" Style="{StaticResource LabelStyle}"/>
+                    <StackPanel x:Name="AboveGroundCounter" Orientation="Horizontal"/>
+                </StackPanel>
+                <!-- Below ground counter -->
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="BELOW GROUND" Style="{StaticResource LabelStyle}"/>
+                    <StackPanel x:Name="BelowGroundCounter" Orientation="Horizontal"/>
+                </StackPanel>
+                <!-- Generated floor codes preview -->
+                <StackPanel Grid.Column="4" VerticalAlignment="Bottom">
+                    <TextBlock Text="FLOOR CODES" Style="{StaticResource LabelStyle}"/>
+                    <TextBlock x:Name="TxtFloorCodes"
+                               FontSize="11" Foreground="{StaticResource PrimaryBlueBrush}"
+                               FontFamily="Consolas" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <!-- ── SHEET NAMING CONVENTION ── -->
         <TextBlock Text="SHEET NAMING CONVENTION" Style="{StaticResource SectionHeaderStyle}" Margin="0,4,0,10"/>
 
