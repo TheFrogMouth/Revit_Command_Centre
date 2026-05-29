@@ -22,6 +22,10 @@ namespace Revit_Command_Centre.Services
 
         public void Execute(UIApplication app)
         {
+            // DIAGNOSTIC — remove once confirmed working
+            TaskDialog.Show("BIM Command Centre — DEBUG",
+                $"Execute fired\nPendingConfig: {(PendingConfig == null ? "NULL" : PendingConfig.ProjectName)}\nSaveAsPath: {SaveAsPath ?? "NULL"}");
+
             if (PendingConfig == null) return;
 
             try
@@ -30,9 +34,8 @@ namespace Revit_Command_Centre.Services
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"Failed to apply project configuration:\n\n{ex.Message}",
-                    "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Error);
+                TaskDialog.Show("BIM Command Centre",
+                    $"Failed to apply project configuration:\n\n{ex.GetType().Name}: {ex.Message}");
             }
         }
 
@@ -45,9 +48,8 @@ namespace Revit_Command_Centre.Services
                 // No project open — create a fresh one
                 if (string.IsNullOrEmpty(SaveAsPath))
                 {
-                    MessageBox.Show(
-                        "No project is open. Please choose a save location and try again.",
-                        "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    TaskDialog.Show("BIM Command Centre",
+                        "No project is open. Please choose a save location and try again.");
                     return;
                 }
 
@@ -65,17 +67,13 @@ namespace Revit_Command_Centre.Services
 
                 if (doc == null)
                 {
-                    MessageBox.Show(
-                        "Failed to create a new Revit project.",
-                        "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Error);
+                    TaskDialog.Show("BIM Command Centre", "Failed to create a new Revit project.");
                     return;
                 }
             }
             else if (doc.IsReadOnly)
             {
-                MessageBox.Show(
-                    "The active document is read-only.",
-                    "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
+                TaskDialog.Show("BIM Command Centre", "The active document is read-only.");
                 return;
             }
 
@@ -83,23 +81,25 @@ namespace Revit_Command_Centre.Services
                 ? null
                 : FindTitleBlockRfa(TitleBlockFolder, PendingConfig.TitleBlock);
 
-            using var tx = new Transaction(doc, "Apply BIM project config");
-            tx.Start();
+            using (var tx = new Transaction(doc, "Apply BIM project config"))
+            {
+                tx.Start();
 
-            doc.ProjectInformation.Name       = PendingConfig.ProjectName;
-            doc.ProjectInformation.Number     = PendingConfig.ProjectNumber;
-            doc.ProjectInformation.ClientName = PendingConfig.ClientName;
+                doc.ProjectInformation.Name       = PendingConfig.ProjectName;
+                doc.ProjectInformation.Number     = PendingConfig.ProjectNumber;
+                doc.ProjectInformation.ClientName = PendingConfig.ClientName;
 
-            if (rfaPath != null)
-                doc.LoadFamily(rfaPath, out _);
+                if (rfaPath != null)
+                    doc.LoadFamily(rfaPath, out _);
 
-            // Non-critical: extensible storage failure must not block the save
-            try { ExtensibleStorageService.WriteConfig(doc, PendingConfig); }
-            catch { /* config can be re-applied; don't abort the transaction */ }
+                // Non-critical: extensible storage failure must not block the save
+                try { ExtensibleStorageService.WriteConfig(doc, PendingConfig); }
+                catch { }
 
-            tx.Commit();
+                tx.Commit();
+            }
 
-            // SaveAs / rename the Revit file if a path was provided
+            // SaveAs is now unambiguously outside the transaction
             string saveMsg = string.Empty;
             if (!string.IsNullOrEmpty(SaveAsPath))
             {
@@ -115,28 +115,22 @@ namespace Revit_Command_Centre.Services
 
             string tbMsg = rfaPath != null
                 ? $"\nTitle block loaded: {Path.GetFileName(rfaPath)}"
-                : (string.IsNullOrEmpty(TitleBlockFolder) ? "" : "\nNo matching title block RFA found in the specified folder.");
+                : (string.IsNullOrEmpty(TitleBlockFolder) ? ""
+                    : "\nNo matching title block RFA found in the specified folder.");
 
-            MessageBox.Show(
-                $"Project information updated in Revit and config saved.{tbMsg}{saveMsg}",
-                "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Information);
+            TaskDialog.Show("BIM Command Centre",
+                $"Project information updated in Revit and config saved.{tbMsg}{saveMsg}");
         }
 
         public string GetName() => "BIM Command Centre — Apply Config";
 
-        /// <summary>
-        /// Looks for an RFA in <paramref name="folder"/> whose filename best matches
-        /// the selected <paramref name="titleBlockName"/> (e.g. "Standard A1").
-        /// </summary>
         private static string? FindTitleBlockRfa(string folder, string titleBlockName)
         {
             if (!Directory.Exists(folder)) return null;
 
-            // 1. Exact name match: "Standard A1.rfa"
             string exact = Path.Combine(folder, $"{titleBlockName}.rfa");
             if (File.Exists(exact)) return exact;
 
-            // 2. Fuzzy: any .rfa whose stem contains the key term ("A1", "A3", "custom")
             string key = titleBlockName
                 .Replace("Standard ", string.Empty)
                 .Replace(" ", string.Empty)
