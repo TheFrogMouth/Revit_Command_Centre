@@ -454,8 +454,12 @@ namespace Revit_Command_Centre.UI
                     Filter   = "Revit Project (*.rvt)|*.rvt",
                     FileName = string.IsNullOrWhiteSpace(suggested) ? "Project.rvt" : suggested
                 };
-                if (dlg.ShowDialog() == true)
-                    saveAsPath = dlg.FileName;
+                if (dlg.ShowDialog() != true)
+                    return;
+                saveAsPath = dlg.FileName;
+                _cachedDocPath  = dlg.FileName;
+                _cachedDocTitle = System.IO.Path.GetFileNameWithoutExtension(dlg.FileName);
+                _txtDocumentName.Text = _cachedDocTitle;
             }
 
             App.ApplyConfigHandler.PendingConfig    = config;

@@ -24,12 +24,42 @@ namespace Revit_Command_Centre.Services
             if (PendingConfig == null) return;
 
             Document? doc = app.ActiveUIDocument?.Document;
-            if (doc == null || doc.IsReadOnly)
+
+            if (doc == null)
+            {
+                // No project open — create a fresh one
+                if (string.IsNullOrEmpty(SaveAsPath))
+                {
+                    MessageBox.Show(
+                        "No project is open. Please choose a save location and try again.",
+                        "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                try
+                {
+                    string? tmpl = app.Application.DefaultProjectTemplate;
+                    doc = (!string.IsNullOrEmpty(tmpl) && File.Exists(tmpl))
+                        ? app.Application.NewProjectDocument(tmpl)
+                        : app.Application.NewProjectDocument(UnitSystem.Metric);
+                }
+                catch
+                {
+                    doc = app.Application.NewProjectDocument(UnitSystem.Metric);
+                }
+
+                if (doc == null)
+                {
+                    MessageBox.Show(
+                        "Failed to create a new Revit project.",
+                        "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+            }
+            else if (doc.IsReadOnly)
             {
                 MessageBox.Show(
-                    doc == null
-                        ? "No project is open. Open a Revit project and try again."
-                        : "The active document is read-only.",
+                    "The active document is read-only.",
                     "BIM Command Centre", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -59,8 +89,7 @@ namespace Revit_Command_Centre.Services
             {
                 var opts = new SaveAsOptions { OverwriteExistingFile = true };
                 doc.SaveAs(SaveAsPath, opts);
-                saveMsg = $"\nProject saved as: {System.IO.Path.GetFileName(SaveAsPath)}";
-                // Update the sidecar JSON next to the new file
+                saveMsg = $"\nProject saved as: {Path.GetFileName(SaveAsPath)}";
                 ConfigService.SaveConfig(PendingConfig, SaveAsPath);
             }
             else if (!string.IsNullOrEmpty(RvtFilePath))
