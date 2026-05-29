@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
@@ -6,7 +7,6 @@ namespace Revit_Command_Centre.Services
 {
     /// <summary>
     /// Machine-level settings persisted to %APPDATA%\BIMCommandCentre\appsettings.json.
-    /// These are the global defaults; per-project overrides live in ProjectConfig.
     /// </summary>
     public class AppSettings
     {
@@ -14,6 +14,16 @@ namespace Revit_Command_Centre.Services
         public string DefaultFamilyNamePrefix   { get; set; } = string.Empty;
         public string FamilyTemplateFolder      { get; set; } = string.Empty;
         public string TitleBlockFolder          { get; set; } = string.Empty;
+
+        /// <summary>Company-standard workset names offered when adding worksets to a new project.</summary>
+        public List<string> WorksetTemplates { get; set; } = new()
+        {
+            "Architecture",
+            "Structure",
+            "MEP",
+            "Shared Levels & Grids",
+            "Links"
+        };
     }
 
     public static class AppSettingsService

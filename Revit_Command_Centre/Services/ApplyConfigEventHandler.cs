@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Windows;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Revit_Command_Centre.Models;
@@ -15,19 +14,13 @@ namespace Revit_Command_Centre.Services
     public class ApplyConfigEventHandler : IExternalEventHandler
     {
         public ProjectConfig? PendingConfig    { get; set; }
-        public string?        RvtFilePath     { get; set; }
+        public string?        RvtFilePath      { get; set; }
         public string?        TitleBlockFolder { get; set; }
-        /// <summary>If set, the document is saved (or renamed) to this full path after applying config.</summary>
-        public string?        SaveAsPath      { get; set; }
+        public string?        SaveAsPath       { get; set; }
 
         public void Execute(UIApplication app)
         {
-            // DIAGNOSTIC — remove once confirmed working
-            TaskDialog.Show("BIM Command Centre — DEBUG",
-                $"Execute fired\nPendingConfig: {(PendingConfig == null ? "NULL" : PendingConfig.ProjectName)}\nSaveAsPath: {SaveAsPath ?? "NULL"}");
-
             if (PendingConfig == null) return;
-
             try
             {
                 ExecuteCore(app);
@@ -45,7 +38,6 @@ namespace Revit_Command_Centre.Services
 
             if (doc == null)
             {
-                // No project open — create a fresh one
                 if (string.IsNullOrEmpty(SaveAsPath))
                 {
                     TaskDialog.Show("BIM Command Centre",
@@ -84,22 +76,15 @@ namespace Revit_Command_Centre.Services
             using (var tx = new Transaction(doc, "Apply BIM project config"))
             {
                 tx.Start();
-
                 doc.ProjectInformation.Name       = PendingConfig.ProjectName;
                 doc.ProjectInformation.Number     = PendingConfig.ProjectNumber;
                 doc.ProjectInformation.ClientName = PendingConfig.ClientName;
-
                 if (rfaPath != null)
                     doc.LoadFamily(rfaPath, out _);
-
-                // Non-critical: extensible storage failure must not block the save
-                try { ExtensibleStorageService.WriteConfig(doc, PendingConfig); }
-                catch { }
-
+                try { ExtensibleStorageService.WriteConfig(doc, PendingConfig); } catch { }
                 tx.Commit();
             }
 
-            // SaveAs is now unambiguously outside the transaction
             string saveMsg = string.Empty;
             if (!string.IsNullOrEmpty(SaveAsPath))
             {
@@ -127,15 +112,12 @@ namespace Revit_Command_Centre.Services
         private static string? FindTitleBlockRfa(string folder, string titleBlockName)
         {
             if (!Directory.Exists(folder)) return null;
-
             string exact = Path.Combine(folder, $"{titleBlockName}.rfa");
             if (File.Exists(exact)) return exact;
-
             string key = titleBlockName
                 .Replace("Standard ", string.Empty)
                 .Replace(" ", string.Empty)
                 .ToLowerInvariant();
-
             return Directory.GetFiles(folder, "*.rfa")
                 .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f)
                     .ToLowerInvariant().Contains(key));
