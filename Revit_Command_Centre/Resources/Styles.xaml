@@ -23,6 +23,8 @@
     <SolidColorBrush x:Key="SuccessGreenBrush"   Color="{StaticResource SuccessGreenColor}"/>
     <SolidColorBrush x:Key="WarningAmberBrush"   Color="{StaticResource WarningAmberColor}"/>
     <SolidColorBrush x:Key="DangerRedBrush"      Color="{StaticResource DangerRedColor}"/>
+    <Color x:Key="EditedAmberBgColor">#FFF3CD</Color>
+    <SolidColorBrush x:Key="EditedAmberBgBrush"  Color="{StaticResource EditedAmberBgColor}"/>
 
     <!-- ══════════════════════  TYPOGRAPHY  ══════════════════════ -->
     <FontFamily x:Key="AppFont">Segoe UI</FontFamily>

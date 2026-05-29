@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using Autodesk.Revit.UI;
 using Revit_Command_Centre.Models;
+using Revit_Command_Centre.Modules.BulkParameters;
 using Revit_Command_Centre.Modules.CreateFamilies;
 using Revit_Command_Centre.Modules.ProjectSetup;
 using Revit_Command_Centre.Modules.SheetsAndDisciplines;
@@ -62,6 +63,7 @@ namespace Revit_Command_Centre.UI
         private Border _btnSheets         = null!;
         private Border _btnUpdateFamilies = null!;
         private Border _btnCreateFamilies = null!;
+        private Border _btnBulkParams     = null!;
 
         private static readonly Dictionary<string, (string Title, string Subtitle)> PageMeta = new()
         {
@@ -69,6 +71,7 @@ namespace Revit_Command_Centre.UI
             ["Sheets"]         = ("Sheets & Disciplines", "Define active disciplines and sheet naming convention"),
             ["UpdateFamilies"] = ("Update Families",      "Add shared parameters to existing family files"),
             ["CreateFamilies"] = ("Create Families",      "Generate new families from templates"),
+            ["BulkParams"]     = ("Bulk Parameters",      "Edit element parameters in bulk across the model"),
         };
 
         public MainView()
@@ -138,6 +141,9 @@ namespace Revit_Command_Centre.UI
             _btnCreateFamilies = NavItem("✦", "Create Families",      "CreateFamilies", active: false);
             nav.Children.Add(_btnUpdateFamilies);
             nav.Children.Add(_btnCreateFamilies);
+            nav.Children.Add(SectionLabel("EDIT"));
+            _btnBulkParams = NavItem("⊞", "Bulk Parameters",          "BulkParams",     active: false);
+            nav.Children.Add(_btnBulkParams);
             Grid.SetRow(nav, 1);
             grid.Children.Add(nav);
 
@@ -328,6 +334,7 @@ namespace Revit_Command_Centre.UI
                 "Sheets"         => CreateSheetsView(),
                 "UpdateFamilies" => CreateUpdateFamiliesView(),
                 "CreateFamilies" => CreateCreateFamiliesView(),
+                "BulkParams"     => CreateBulkParamsView(),
                 _                => null
             };
         }
@@ -338,6 +345,7 @@ namespace Revit_Command_Centre.UI
         {
             if (_uiApp == null) return NotActivatedPlaceholder();
             AddTopbarButton("Load from file", isSecondary: true,  onClick: ProjectSetup_LoadFromFile);
+            AddTopbarButton("Templates",      isSecondary: true,  onClick: ProjectSetup_Templates);
             AddTopbarButton("Save & apply",   isSecondary: false, onClick: ProjectSetup_SaveAndApply);
             return new ProjectSetupView(_uiApp);
         }
@@ -362,6 +370,12 @@ namespace Revit_Command_Centre.UI
             if (_uiApp == null) return NotActivatedPlaceholder();
             AddTopbarButton("Generate", isSecondary: false, onClick: CreateFamilies_Generate);
             return new CreateFamiliesView(_uiApp);
+        }
+
+        private UIElement CreateBulkParamsView()
+        {
+            if (_uiApp == null) return NotActivatedPlaceholder();
+            return new BulkParametersView(_uiApp);
         }
 
         private TextBlock NotActivatedPlaceholder() => new()
@@ -403,6 +417,12 @@ namespace Revit_Command_Centre.UI
         }
 
         // ── topbar event handlers ─────────────────────────────────────────────
+
+        private void ProjectSetup_Templates(object sender, RoutedEventArgs e)
+        {
+            if (_contentArea.Content is ProjectSetupView psv)
+                psv.ToggleTemplatesFlyout();
+        }
 
         private void ProjectSetup_LoadFromFile(object sender, RoutedEventArgs e)
         {
@@ -459,10 +479,10 @@ namespace Revit_Command_Centre.UI
             App.ApplyConfigHandler.TitleBlockFolder = AppSettingsService.Load().TitleBlockFolder;
             App.ApplyConfigHandler.SaveAsPath       = saveAsPath;
 
-            // DIAGNOSTIC — capture and display the Raise() result
             var req = App.ApplyConfigEvent.Raise();
-            MessageBox.Show($"ExternalEvent.Raise() returned: {req}",
-                "BIM Command Centre — DEBUG", MessageBoxButton.OK, MessageBoxImage.Information);
+            if (req != Autodesk.Revit.UI.ExternalEventRequest.Accepted)
+                Autodesk.Revit.UI.TaskDialog.Show("BIM Command Centre",
+                    $"Could not queue the save operation (status: {req}). Please try again.");
         }
 
         private static string SanitizeFileName(string name)

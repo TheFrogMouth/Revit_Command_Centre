@@ -18,6 +18,10 @@ namespace Revit_Command_Centre
         public static ExternalEvent?              GenerateSheetsEvent   { get; private set; }
         public static AddWorksetEventHandler?     AddWorksetHandler     { get; private set; }
         public static ExternalEvent?              AddWorksetEvent       { get; private set; }
+        public static TitleBlockEventHandler?     TitleBlockHandler     { get; private set; }
+        public static ExternalEvent?              TitleBlockEvent       { get; private set; }
+        public static BulkParameterEventHandler?  BulkParamHandler      { get; private set; }
+        public static ExternalEvent?              BulkParamEvent        { get; private set; }
 
         public static readonly DockablePaneId PaneId =
             new DockablePaneId(new Guid("B7C8D9E0-F1A2-3B4C-5D6E-7F8A9B0C1D2E"));
@@ -41,6 +45,12 @@ namespace Revit_Command_Centre
                 GenerateSheetsEvent   = ExternalEvent.Create(GenerateSheetsHandler);
                 AddWorksetHandler     = new AddWorksetEventHandler();
                 AddWorksetEvent       = ExternalEvent.Create(AddWorksetHandler);
+                TitleBlockHandler     = new TitleBlockEventHandler();
+                TitleBlockEvent       = ExternalEvent.Create(TitleBlockHandler);
+                BulkParamHandler      = new BulkParameterEventHandler();
+                BulkParamEvent        = ExternalEvent.Create(BulkParamHandler);
+
+                ConfigService.EnsureStarterTemplates();
 
                 PaneProvider = new MainViewPaneProvider();
                 app.RegisterDockablePane(PaneId, "BIM Command Centre", PaneProvider);
@@ -73,6 +83,10 @@ namespace Revit_Command_Centre
             GenerateSheetsEvent   = null;
             AddWorksetHandler     = null;
             AddWorksetEvent       = null;
+            TitleBlockHandler     = null;
+            TitleBlockEvent       = null;
+            BulkParamHandler      = null;
+            BulkParamEvent        = null;
             return Result.Succeeded;
         }
     }

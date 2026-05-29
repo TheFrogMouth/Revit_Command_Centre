@@ -32,6 +32,9 @@ namespace Revit_Command_Centre.Models
         /// <summary>Prefix prepended to family filenames on save, e.g. "A" → "A_DoorTimber.rfa".</summary>
         public string FamilyNamePrefix { get; set; } = string.Empty;
 
+        /// <summary>Maps config field keys ("ClientName","ProjectName","ProjectNumber") to title block parameter names.</summary>
+        public Dictionary<string, string> TitleBlockMapping { get; set; } = new();
+
         public DateTime LastModified { get; set; } = DateTime.UtcNow;
     }
 }

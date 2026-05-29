@@ -16,187 +16,258 @@
 
     <StackPanel Margin="20,16,20,24">
 
-        <!-- ── DROP ZONE ── -->
-        <Border x:Name="DropZoneBorder" Height="90" CornerRadius="8"
-                BorderBrush="{StaticResource PrimaryBlueBrush}" BorderThickness="2"
-                Background="{StaticResource LightBlueBgBrush}"
-                Margin="0,0,0,14" Cursor="Hand"
-                MouseLeftButtonUp="DropZone_Click">
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                <TextBlock Text="⬇" FontSize="22" HorizontalAlignment="Center"
-                           Foreground="{StaticResource PrimaryBlueBrush}"/>
-                <TextBlock Text="Drop .rfa files or a folder here, or click to browse"
-                           FontSize="12" Foreground="{StaticResource PrimaryBlueBrush}"
-                           Margin="0,4,0,0" HorizontalAlignment="Center"/>
-            </StackPanel>
-        </Border>
+        <!-- ── MODE TOGGLE ── -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+            <StackPanel x:Name="ModeSwitcherContainer"/>
+        </StackPanel>
 
-        <!-- ── OUTPUT SETTINGS ── -->
-        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="10"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+        <!-- ══════════  UPDATE PARAMETERS PANEL  ══════════ -->
+        <StackPanel x:Name="UpdateParamsPanel">
 
-                <!-- Output folder row -->
-                <Grid Grid.Row="0">
+            <!-- ── DROP ZONE ── -->
+            <Border x:Name="DropZoneBorder" Height="90" CornerRadius="8"
+                    BorderBrush="{StaticResource PrimaryBlueBrush}" BorderThickness="2"
+                    Background="{StaticResource LightBlueBgBrush}"
+                    Margin="0,0,0,14" Cursor="Hand"
+                    MouseLeftButtonUp="DropZone_Click">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="⬇" FontSize="22" HorizontalAlignment="Center"
+                               Foreground="{StaticResource PrimaryBlueBrush}"/>
+                    <TextBlock Text="Drop .rfa files or a folder here, or click to browse"
+                               FontSize="12" Foreground="{StaticResource PrimaryBlueBrush}"
+                               Margin="0,4,0,0" HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ── OUTPUT SETTINGS ── -->
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="10"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="8"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="OUTPUT FOLDER" Style="{StaticResource LabelStyle}"/>
+                            <TextBox x:Name="TxtOutputFolder" Style="{StaticResource TextBoxStyle}"
+                                     IsReadOnly="True" Cursor="Hand"
+                                     MouseLeftButtonUp="OutputFolder_Click"
+                                     Text="Same as source file"/>
+                        </StackPanel>
+                        <StackPanel x:Name="BrowseOutputFolderContainer" Grid.Column="2"
+                                    Margin="0,18,0,0" VerticalAlignment="Top"/>
+                    </Grid>
+
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="NAME PREFIX" Style="{StaticResource LabelStyle}"/>
+                            <TextBox x:Name="TxtNamePrefix" Style="{StaticResource TextBoxStyle}"
+                                     ToolTip="Prepended to filename: PREFIX_OriginalName.rfa  (leave blank to keep original name)"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
+                            <TextBlock x:Name="TxtNamePreview"
+                                       FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
+                                       FontStyle="Italic" Margin="0,0,0,6"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- ── FILE LIST ── -->
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+                <StackPanel>
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="FILES TO PROCESS" Style="{StaticResource LabelStyle}" Margin="0"/>
+                        <StackPanel x:Name="ClearFilesContainer" Grid.Column="1"/>
+                    </Grid>
+                    <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
+                        <StackPanel x:Name="FileListPanel">
+                            <TextBlock x:Name="TxtNoFiles" Text="No files selected"
+                                       FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
+                                       Margin="0,4,0,4"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
+
+            <!-- ── FILTERS ── -->
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="CATEGORY FILTER" Style="{StaticResource LabelStyle}"/>
+                        <StackPanel x:Name="CmbCategoryFilter"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="APPLY PARAMETERS" Style="{StaticResource LabelStyle}"/>
+                        <StackPanel x:Name="CmbParameterFilter"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ── PROGRESS ── -->
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+                <StackPanel>
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="TxtCurrentFile" Grid.Column="0"
+                                   FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                   Text="Ready" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="TxtProgress" Grid.Column="1"
+                                   FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
+                                   Margin="8,0,0,0"/>
+                    </Grid>
+                    <Border Height="6" CornerRadius="3" Background="#E0E0E0">
+                        <Border x:Name="ProgressFill" Height="6" CornerRadius="3" HorizontalAlignment="Left"
+                                Background="{StaticResource PrimaryBlueBrush}" Width="0"/>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ── STATS ── -->
+            <Grid Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Style="{StaticResource StatCardStyle}">
+                    <StackPanel>
+                        <TextBlock x:Name="StatTotal" Text="0" FontSize="22" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Total" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource StatCardStyle}">
+                    <StackPanel>
+                        <TextBlock x:Name="StatUpdated" Text="0" FontSize="22" FontWeight="SemiBold"
+                                   Foreground="{StaticResource SuccessGreenBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Updated" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="4" Style="{StaticResource StatCardStyle}">
+                    <StackPanel>
+                        <TextBlock x:Name="StatSkipped" Text="0" FontSize="22" FontWeight="SemiBold"
+                                   Foreground="{StaticResource WarningAmberBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Skipped" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="6" Style="{StaticResource StatCardStyle}">
+                    <StackPanel>
+                        <TextBlock x:Name="StatErrors" Text="0" FontSize="22" FontWeight="SemiBold"
+                                   Foreground="{StaticResource DangerRedBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Errors" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ── LOG ── -->
+            <TextBlock Text="LOG" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,8"/>
+            <Border Style="{StaticResource CardStyle}" MinHeight="100">
+                <ScrollViewer x:Name="LogScrollViewer" VerticalScrollBarVisibility="Auto" MaxHeight="200">
+                    <StackPanel x:Name="LogPanel"/>
+                </ScrollViewer>
+            </Border>
+
+        </StackPanel>
+
+        <!-- ══════════  RENAME TO CONVENTION PANEL  ══════════ -->
+        <StackPanel x:Name="RenamePanel" Visibility="Collapsed">
+
+            <!-- Folder picker -->
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="8"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="OUTPUT FOLDER" Style="{StaticResource LabelStyle}"/>
-                        <TextBox x:Name="TxtOutputFolder" Style="{StaticResource TextBoxStyle}"
+                        <TextBlock Text="FOLDER TO SCAN" Style="{StaticResource LabelStyle}"/>
+                        <TextBox x:Name="TxtRenameFolderPath" Style="{StaticResource TextBoxStyle}"
                                  IsReadOnly="True" Cursor="Hand"
-                                 MouseLeftButtonUp="OutputFolder_Click"
-                                 Text="Same as source file"/>
+                                 MouseLeftButtonUp="BrowseRenameFolder_Click"
+                                 ToolTip="Folder containing .rfa files to rename"/>
                     </StackPanel>
-                    <!-- Browse button built in code-behind — no WPF Button ControlTemplate -->
-                    <StackPanel x:Name="BrowseOutputFolderContainer" Grid.Column="2"
+                    <StackPanel x:Name="BrowseRenameFolderContainer" Grid.Column="2"
                                 Margin="0,18,0,0" VerticalAlignment="Top"/>
                 </Grid>
+            </Border>
 
-                <!-- Name prefix row -->
-                <Grid Grid.Row="2">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="12"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="NAME PREFIX" Style="{StaticResource LabelStyle}"/>
-                        <TextBox x:Name="TxtNamePrefix" Style="{StaticResource TextBoxStyle}"
-                                 ToolTip="Prepended to filename: PREFIX_OriginalName.rfa  (leave blank to keep original name)"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
-                        <TextBlock x:Name="TxtNamePreview"
-                                   FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
-                                   FontStyle="Italic" Margin="0,0,0,6"/>
-                    </StackPanel>
-                </Grid>
-            </Grid>
-        </Border>
-
-        <!-- ── FILE LIST ── -->
-        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
-            <StackPanel>
-                <Grid Margin="0,0,0,6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="FILES TO PROCESS" Style="{StaticResource LabelStyle}" Margin="0"/>
-                    <!-- Clear button built in code-behind -->
-                    <StackPanel x:Name="ClearFilesContainer" Grid.Column="1"/>
-                </Grid>
-                <ScrollViewer MaxHeight="160" VerticalScrollBarVisibility="Auto">
-                    <StackPanel x:Name="FileListPanel">
-                        <TextBlock x:Name="TxtNoFiles" Text="No files selected"
-                                   FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
-                                   Margin="0,4,0,4"/>
-                    </StackPanel>
-                </ScrollViewer>
-            </StackPanel>
-        </Border>
-
-        <!-- ── FILTERS ── -->
-        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="CATEGORY FILTER" Style="{StaticResource LabelStyle}"/>
-                    <!-- Picker built in code-behind — no WPF ComboBox ControlTemplate -->
-                    <StackPanel x:Name="CmbCategoryFilter"/>
+            <!-- Scan results -->
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+                <StackPanel>
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="SCAN RESULTS" Style="{StaticResource LabelStyle}" Margin="0"
+                                   VerticalAlignment="Center"/>
+                        <StackPanel x:Name="RenameScanContainer" Grid.Column="1"/>
+                    </Grid>
+                    <!-- DataGrid columns added in code-behind; AutoGenerateColumns=False to avoid ControlTemplate crash -->
+                    <DataGrid x:Name="RenameGrid"
+                              AutoGenerateColumns="False"
+                              CanUserSortColumns="False"
+                              RowHeaderWidth="0"
+                              EnableRowVirtualization="True"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              SelectionMode="Single"
+                              SelectionUnit="Row"
+                              HeadersVisibility="Column"
+                              MinHeight="100" MaxHeight="350"
+                              Margin="0,0,0,0"/>
                 </StackPanel>
-                <StackPanel Grid.Column="2">
-                    <TextBlock Text="APPLY PARAMETERS" Style="{StaticResource LabelStyle}"/>
-                    <StackPanel x:Name="CmbParameterFilter"/>
-                </StackPanel>
-            </Grid>
-        </Border>
+            </Border>
 
-        <!-- ── PROGRESS ── -->
-        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
-            <StackPanel>
-                <Grid Margin="0,0,0,6">
+            <!-- Rename action bar -->
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="TxtCurrentFile" Grid.Column="0"
-                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
-                               Text="Ready" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="TxtProgress" Grid.Column="1"
-                               FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
-                               Margin="8,0,0,0"/>
+                    <TextBlock x:Name="TxtRenameStatus" Grid.Column="0" FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    <StackPanel x:Name="RenameActionContainer" Grid.Column="1"/>
                 </Grid>
-                <!-- ProgressBar replaced with two-Border custom control — no WPF ProgressBar ControlTemplate -->
-                <Border Height="6" CornerRadius="3" Background="#E0E0E0">
-                    <Border x:Name="ProgressFill" Height="6" CornerRadius="3" HorizontalAlignment="Left"
-                            Background="{StaticResource PrimaryBlueBrush}" Width="0"/>
-                </Border>
-            </StackPanel>
-        </Border>
+            </Border>
 
-        <!-- ── STATS ── -->
-        <Grid Margin="0,0,0,14">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="8"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="8"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="8"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Border Grid.Column="0" Style="{StaticResource StatCardStyle}">
-                <StackPanel>
-                    <TextBlock x:Name="StatTotal" Text="0" FontSize="22" FontWeight="SemiBold"
-                               Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Total" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"
-                               HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="2" Style="{StaticResource StatCardStyle}">
-                <StackPanel>
-                    <TextBlock x:Name="StatUpdated" Text="0" FontSize="22" FontWeight="SemiBold"
-                               Foreground="{StaticResource SuccessGreenBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Updated" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"
-                               HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="4" Style="{StaticResource StatCardStyle}">
-                <StackPanel>
-                    <TextBlock x:Name="StatSkipped" Text="0" FontSize="22" FontWeight="SemiBold"
-                               Foreground="{StaticResource WarningAmberBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Skipped" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"
-                               HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="6" Style="{StaticResource StatCardStyle}">
-                <StackPanel>
-                    <TextBlock x:Name="StatErrors" Text="0" FontSize="22" FontWeight="SemiBold"
-                               Foreground="{StaticResource DangerRedBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Errors" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"
-                               HorizontalAlignment="Center"/>
-                </StackPanel>
-            </Border>
-        </Grid>
-
-        <!-- ── LOG ── -->
-        <TextBlock Text="LOG" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,8"/>
-        <Border Style="{StaticResource CardStyle}" MinHeight="100">
-            <ScrollViewer x:Name="LogScrollViewer" VerticalScrollBarVisibility="Auto" MaxHeight="200">
-                <StackPanel x:Name="LogPanel"/>
-            </ScrollViewer>
-        </Border>
+        </StackPanel>
 
     </StackPanel>
 </UserControl>

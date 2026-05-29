@@ -22,16 +22,21 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
         private readonly Picker _language   = new(new[] { "English", "Nederlands", "Français" });
         private readonly Picker _titleBlock = new(new[] { "Standard A1", "Standard A3", "Custom" });
 
+        // Title-block mapping pickers — options populated after FetchParameters callback
+        private Picker _tbClientPicker      = new(new[] { "—" });
+        private Picker _tbProjectNamePicker = new(new[] { "—" });
+        private Picker _tbProjectNumPicker  = new(new[] { "—" });
+
         private static readonly string[] TierLabels =
             { "", "Tier 1 — Standard", "Tier 2 — BIM Compliant", "Tier 3 — ISO 19650 Full" };
 
-        // Brushes kept local to avoid importing Autodesk.Revit.DB (which conflicts with WPF Color)
         private static readonly SolidColorBrush LockedBg    = Frozen(0xFF, 0xF5, 0xF5, 0xF5);
         private static readonly SolidColorBrush GreenFill   = Frozen(0xFF, 0x2E, 0xA4, 0x3E);
         private static readonly SolidColorBrush GreyFill    = Frozen(0xFF, 0xC0, 0xC0, 0xC0);
         private static readonly SolidColorBrush TxtPrimary  = Frozen(0xFF, 0x1A, 0x1A, 0x1A);
         private static readonly SolidColorBrush TxtSecond   = Frozen(0xFF, 0x6B, 0x6B, 0x6B);
         private static readonly SolidColorBrush BorderC     = Frozen(0x1E, 0x00, 0x00, 0x00);
+        private static readonly SolidColorBrush AmberBorder = Frozen(0xFF, 0xBA, 0x75, 0x17);
         private static readonly FontFamily      AppFont     = new("Segoe UI");
 
         private static SolidColorBrush Frozen(byte a, byte r, byte g, byte b)
@@ -75,7 +80,6 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
                     TxtProjectNumber.Text = doc.ProjectInformation.Number;
                     TxtClientName.Text    = doc.ProjectInformation.ClientName;
 
-                    // Restore picker state from saved config
                     ProjectConfig? config = null;
                     try { config = ExtensibleStorageService.ReadConfig(doc); } catch { }
                     if (config == null && !string.IsNullOrEmpty(doc.PathName))
@@ -90,6 +94,9 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
                 }
             }
 
+            BuildTemplatesButton();
+            BuildApplyTbButton();
+            FetchTitleBlockParams();
             PopulateWorksets();
             UpdatePreview();
         }
@@ -104,7 +111,143 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
             label.Text            = label.Text + " (LOCKED)";
         }
 
-        // ───────────────────────────────────  worksets  ───────────────────────────────────
+        // ─────────────────────────────────  templates  ─────────────────────────────────────
+
+        private bool _templatesFlyoutOpen;
+
+        private void BuildTemplatesButton()
+        {
+            TemplatesBtnContainer.Children.Clear();
+            TemplatesBtnContainer.Children.Add(
+                PickerHelper.MakeButton("▼ Templates", ToggleTemplatesFlyout_Click));
+        }
+
+        public void ToggleTemplatesFlyout()
+        {
+            _templatesFlyoutOpen = !_templatesFlyoutOpen;
+            TemplatesFlyout.Visibility = _templatesFlyoutOpen ? Visibility.Visible : Visibility.Collapsed;
+            if (_templatesFlyoutOpen) RebuildTemplatesFlyout();
+        }
+
+        private void ToggleTemplatesFlyout_Click(object sender, MouseButtonEventArgs e) =>
+            ToggleTemplatesFlyout();
+
+        private void RebuildTemplatesFlyout()
+        {
+            TemplatesFlyoutContent.Children.Clear();
+
+            // Save as template — inline name input (no Popup/Window)
+            var saveRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 8) };
+            var saveInput = new TextBox
+            {
+                Width = 200, Height = 30,
+                Padding = new Thickness(8, 0, 8, 0),
+                VerticalContentAlignment = VerticalAlignment.Center,
+                FontFamily = AppFont, FontSize = 12,
+                Margin = new Thickness(0, 0, 8, 0),
+                ToolTip = "Enter a name for this template"
+            };
+            saveRow.Children.Add(saveInput);
+            saveRow.Children.Add(PickerHelper.MakeButton("Save as template",
+                (object s, MouseButtonEventArgs ev) =>
+                {
+                    string name = saveInput.Text.Trim();
+                    if (string.IsNullOrEmpty(name)) return;
+                    ConfigService.SaveAsTemplate(BuildConfig(), name);
+                    saveInput.Text = "";
+                    TxtTemplateStatus.Text = $"Saved template \"{name}\".";
+                    RebuildTemplatesFlyout();
+                }));
+            TemplatesFlyoutContent.Children.Add(saveRow);
+
+            // Divider
+            TemplatesFlyoutContent.Children.Add(new Border
+            {
+                Height = 1, Background = BorderC, Margin = new Thickness(0, 4, 0, 8)
+            });
+
+            // Available template list
+            var templates = ConfigService.GetAvailableTemplates();
+            if (templates.Count == 0)
+            {
+                TemplatesFlyoutContent.Children.Add(new TextBlock
+                {
+                    Text = "No saved templates yet.", FontFamily = AppFont, FontSize = 11,
+                    Foreground = TxtSecond, Margin = new Thickness(0, 0, 0, 4)
+                });
+            }
+            else
+            {
+                foreach (string templateName in templates)
+                {
+                    string capture = templateName;
+                    var row = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                    var loadBtn = new Border
+                    {
+                        Padding = new Thickness(10, 4, 10, 4), CornerRadius = new CornerRadius(4),
+                        Cursor = Cursors.Hand, BorderBrush = BorderC, BorderThickness = new Thickness(1),
+                        Background = Brushes.White,
+                        Child = new TextBlock { Text = capture, FontFamily = AppFont, FontSize = 11, Foreground = TxtPrimary }
+                    };
+                    loadBtn.MouseLeftButtonUp += (s, ev) => LoadTemplate(capture);
+                    Grid.SetColumn(loadBtn, 0);
+
+                    var delBtn = new Border
+                    {
+                        Width = 28, Height = 28, CornerRadius = new CornerRadius(4),
+                        Cursor = Cursors.Hand, BorderBrush = BorderC, BorderThickness = new Thickness(1),
+                        Background = Brushes.White, Margin = new Thickness(4, 0, 0, 0),
+                        Child = new TextBlock
+                        {
+                            Text = "✕", FontFamily = AppFont, FontSize = 11, Foreground = TxtSecond,
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            VerticalAlignment   = VerticalAlignment.Center
+                        }
+                    };
+                    delBtn.MouseLeftButtonUp += (s, ev) =>
+                    {
+                        ConfigService.DeleteTemplate(capture);
+                        TxtTemplateStatus.Text = $"Deleted template \"{capture}\".";
+                        RebuildTemplatesFlyout();
+                    };
+                    Grid.SetColumn(delBtn, 1);
+
+                    row.Children.Add(loadBtn);
+                    row.Children.Add(delBtn);
+                    TemplatesFlyoutContent.Children.Add(row);
+                }
+            }
+        }
+
+        private void LoadTemplate(string templateName)
+        {
+            var template = ConfigService.LoadTemplate(templateName);
+            if (template == null) return;
+            LoadConfig(template);
+            TxtTemplateStatus.Text = $"Loaded template \"{templateName}\". Fill in client and project details.";
+            HighlightEmptyRequiredFields();
+            _templatesFlyoutOpen = false;
+            TemplatesFlyout.Visibility = Visibility.Collapsed;
+        }
+
+        private void HighlightEmptyRequiredFields()
+        {
+            SetAmberBorder(TxtClientName,    string.IsNullOrWhiteSpace(TxtClientName.Text));
+            SetAmberBorder(TxtProjectName,   !_isProjectSaved && string.IsNullOrWhiteSpace(TxtProjectName.Text));
+            SetAmberBorder(TxtProjectNumber, !_isProjectSaved && string.IsNullOrWhiteSpace(TxtProjectNumber.Text));
+        }
+
+        private static void SetAmberBorder(TextBox box, bool highlight)
+        {
+            if (box.IsReadOnly) return;
+            box.BorderBrush     = highlight ? AmberBorder : null;
+            box.BorderThickness = highlight ? new Thickness(2) : new Thickness(1);
+        }
+
+        // ────────────────────────────────────  worksets  ───────────────────────────────────
 
         private void PopulateWorksets()
         {
@@ -191,7 +334,6 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
 
             var panel = new StackPanel { Margin = new Thickness(0, 8, 0, 0) };
 
-            // Read worksets fresh so the chip list reflects the current doc state, not a stale cache
             var settings = AppSettingsService.Load();
             var doc      = _uiApp.ActiveUIDocument?.Document;
             var existing = doc != null && doc.IsWorkshared
@@ -266,20 +408,68 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
         private void RaiseAddWorkset(string name, StackPanel addPanel)
         {
             if (App.AddWorksetHandler == null || App.AddWorksetEvent == null) return;
-
             App.AddWorksetHandler.WorksetName = name;
-            // Check Raise() return: if Pending, another event is in flight and WorksetName must
-            // not be overwritten — bail out so the user retries after Revit drains the queue.
-            if (App.AddWorksetEvent.Raise() != Autodesk.Revit.UI.ExternalEventRequest.Accepted)
-                return;
-
+            if (App.AddWorksetEvent.Raise() != Autodesk.Revit.UI.ExternalEventRequest.Accepted) return;
             WorksetsList.Children.Remove(addPanel);
             WorksetActionContainer.Children.Clear();
             WorksetActionContainer.Children.Add(
                 PickerHelper.MakeButton("+ Add workset", ShowAddWorksetPanel_Click));
         }
 
-        // ──────────────────────────────────  browse  ──────────────────────────────────────────
+        // ───────────────────────────────  title block mapping  ─────────────────────────────
+
+        private void FetchTitleBlockParams()
+        {
+            if (App.TitleBlockHandler == null || App.TitleBlockEvent == null) return;
+            App.TitleBlockHandler.Mode = TitleBlockEventHandler.OperationMode.FetchParameters;
+            App.TitleBlockHandler.OnParametersFetched = OnTitleBlockParamsFetched;
+            App.TitleBlockEvent.Raise();
+        }
+
+        private void OnTitleBlockParamsFetched(List<string> parameters)
+        {
+            var options = new[] { "—" }.Concat(parameters).ToArray();
+            _tbClientPicker      = new Picker(options);
+            _tbProjectNamePicker = new Picker(options);
+            _tbProjectNumPicker  = new Picker(options);
+
+            var suggested = TitleBlockService.SuggestDefaultMapping(parameters);
+            SetPickerByValue(_tbClientPicker,       CmbTbClient,       suggested.GetValueOrDefault("ClientName",    ""), "—");
+            SetPickerByValue(_tbProjectNamePicker,  CmbTbProjectName,  suggested.GetValueOrDefault("ProjectName",   ""), "—");
+            SetPickerByValue(_tbProjectNumPicker,   CmbTbProjectNumber, suggested.GetValueOrDefault("ProjectNumber", ""), "—");
+
+            TxtTbMappingStatus.Text = parameters.Count > 0
+                ? $"Found {parameters.Count} title block parameter(s)."
+                : "No title block instances found on sheets. Add a title block family to see parameters.";
+        }
+
+        private void BuildApplyTbButton()
+        {
+            ApplyTbContainer.Children.Clear();
+            ApplyTbContainer.Children.Add(
+                PickerHelper.MakeButton("Apply to title blocks", ApplyTitleBlocks_Click));
+        }
+
+        private void ApplyTitleBlocks_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (App.TitleBlockHandler == null || App.TitleBlockEvent == null) return;
+
+            var mapping = new Dictionary<string, string>
+            {
+                ["ClientName"]    = _tbClientPicker.Value == "—"      ? "" : _tbClientPicker.Value,
+                ["ProjectName"]   = _tbProjectNamePicker.Value == "—" ? "" : _tbProjectNamePicker.Value,
+                ["ProjectNumber"] = _tbProjectNumPicker.Value == "—"  ? "" : _tbProjectNumPicker.Value
+            };
+
+            App.TitleBlockHandler.Mode         = TitleBlockEventHandler.OperationMode.Apply;
+            App.TitleBlockHandler.PendingConfig = BuildConfig();
+            App.TitleBlockHandler.FieldMapping  = mapping;
+
+            if (App.TitleBlockEvent.Raise() != Autodesk.Revit.UI.ExternalEventRequest.Accepted)
+                TxtTbMappingStatus.Text = "Another operation is in progress. Please try again.";
+        }
+
+        // ──────────────────────────────────  browse  ──────────────────────────────────────
 
         private void BrowseTitleBlockFolder_Click(object sender, MouseButtonEventArgs e)
         {
@@ -313,7 +503,12 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
             CardTier3.Style = _selectedTier == 3 ? selected : normal;
         }
 
-        private void Preview_Changed(object sender, TextChangedEventArgs e) => UpdatePreview();
+        private void Preview_Changed(object sender, TextChangedEventArgs e)
+        {
+            UpdatePreview();
+            // Clear amber highlight once the user starts typing
+            if (sender is TextBox tb) SetAmberBorder(tb, false);
+        }
 
         private void UpdatePreview()
         {
@@ -324,12 +519,11 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
             PreviewTier.Text     = TierLabels[_selectedTier];
         }
 
-        // ──────────────────────────────────  public API  ──────────────────────────────────────────
+        // ──────────────────────────────────  public API  ──────────────────────────────────
 
         public void LoadConfig(ProjectConfig config)
         {
             TxtClientName.Text = config.ClientName;
-            // Respect the lock: project identity must not be overwritten once saved to disk
             if (!_isProjectSaved)
             {
                 TxtProjectName.Text   = config.ProjectName;
@@ -352,7 +546,13 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
             ComplianceTier = _selectedTier,
             IfcSchema      = _selectedTier >= 2 ? "IFC4" : string.Empty,
             CobieEnabled   = _selectedTier >= 3,
-            LastModified   = DateTime.UtcNow
+            TitleBlockMapping = new Dictionary<string, string>
+            {
+                ["ClientName"]    = _tbClientPicker.Value == "—"      ? "" : _tbClientPicker.Value,
+                ["ProjectName"]   = _tbProjectNamePicker.Value == "—" ? "" : _tbProjectNamePicker.Value,
+                ["ProjectNumber"] = _tbProjectNumPicker.Value == "—"  ? "" : _tbProjectNumPicker.Value
+            },
+            LastModified = DateTime.UtcNow
         };
 
         private void SetPickerByValue(Picker picker, StackPanel panel, string value, string fallback)
