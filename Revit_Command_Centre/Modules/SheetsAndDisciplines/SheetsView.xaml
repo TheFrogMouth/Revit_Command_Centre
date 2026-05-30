@@ -15,40 +15,81 @@
 
         <!-- ── ACTIVE DISCIPLINES ── -->
         <TextBlock Text="ACTIVE DISCIPLINES" Style="{StaticResource SectionHeaderStyle}" Margin="0,0,0,10"/>
+        <WrapPanel x:Name="DisciplinesPanel" Margin="0,0,0,8"/>
 
-        <WrapPanel x:Name="DisciplinesPanel" Margin="0,0,0,16">
-            <!-- Discipline toggle cards are generated in code-behind -->
-        </WrapPanel>
+        <!-- ── NUMBER RANGES (built per active discipline in code-behind) ── -->
+        <Border x:Name="NumberRangesCard" Style="{StaticResource CardStyle}" Margin="0,0,0,14"
+                Visibility="Collapsed">
+            <StackPanel x:Name="NumberRangesPanel"/>
+        </Border>
 
         <!-- ── FLOORS / LEVELS ── -->
         <TextBlock Text="FLOORS / LEVELS" Style="{StaticResource SectionHeaderStyle}" Margin="0,4,0,10"/>
 
         <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <!-- Above ground counter -->
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="ABOVE GROUND" Style="{StaticResource LabelStyle}"/>
-                    <StackPanel x:Name="AboveGroundCounter" Orientation="Horizontal"/>
-                </StackPanel>
-                <!-- Below ground counter -->
-                <StackPanel Grid.Column="2">
-                    <TextBlock Text="BELOW GROUND" Style="{StaticResource LabelStyle}"/>
-                    <StackPanel x:Name="BelowGroundCounter" Orientation="Horizontal"/>
-                </StackPanel>
-                <!-- Generated floor codes preview -->
-                <StackPanel Grid.Column="4" VerticalAlignment="Bottom">
-                    <TextBlock Text="FLOOR CODES" Style="{StaticResource LabelStyle}"/>
-                    <TextBlock x:Name="TxtFloorCodes"
-                               FontSize="11" Foreground="{StaticResource PrimaryBlueBrush}"
-                               FontFamily="Consolas" TextWrapping="Wrap"/>
-                </StackPanel>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="10"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Counters + codes preview -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="ABOVE GROUND" Style="{StaticResource LabelStyle}"/>
+                        <StackPanel x:Name="AboveGroundCounter" Orientation="Horizontal"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="BELOW GROUND" Style="{StaticResource LabelStyle}"/>
+                        <StackPanel x:Name="BelowGroundCounter" Orientation="Horizontal"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4" VerticalAlignment="Bottom">
+                        <TextBlock Text="FLOOR CODES" Style="{StaticResource LabelStyle}"/>
+                        <TextBlock x:Name="TxtFloorCodes"
+                                   FontSize="11" Foreground="{StaticResource PrimaryBlueBrush}"
+                                   FontFamily="Consolas" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Floor label / prefix inputs -->
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="GROUND LABEL" Style="{StaticResource LabelStyle}"/>
+                        <TextBox x:Name="TxtGroundLabel" Style="{StaticResource TextBoxStyle}"
+                                 Text="GF" MaxLength="10"
+                                 TextChanged="FloorLabel_Changed"
+                                 ToolTip="Label used for the ground/entry floor (e.g. GF, G, 00)"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="ABOVE PREFIX" Style="{StaticResource LabelStyle}"/>
+                        <TextBox x:Name="TxtAbovePrefix" Style="{StaticResource TextBoxStyle}"
+                                 Text="L" MaxLength="5"
+                                 TextChanged="FloorLabel_Changed"
+                                 ToolTip="Prefix for above-ground floors (e.g. L → L01, L02)"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Text="BELOW PREFIX" Style="{StaticResource LabelStyle}"/>
+                        <TextBox x:Name="TxtBelowPrefix" Style="{StaticResource TextBoxStyle}"
+                                 Text="B" MaxLength="5"
+                                 TextChanged="FloorLabel_Changed"
+                                 ToolTip="Prefix for below-ground floors (e.g. B → B01, B02)"/>
+                    </StackPanel>
+                </Grid>
             </Grid>
         </Border>
 
@@ -64,21 +105,14 @@
                     <ColumnDefinition Width="12"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-
-                <!-- Format -->
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="FORMAT" Style="{StaticResource LabelStyle}"/>
-                    <!-- Picker built in code-behind — no WPF ComboBox ControlTemplate -->
                     <StackPanel x:Name="CmbFormat"/>
                 </StackPanel>
-
-                <!-- Number padding -->
                 <StackPanel Grid.Column="2">
                     <TextBlock Text="NUMBER PADDING" Style="{StaticResource LabelStyle}"/>
                     <StackPanel x:Name="CmbPadding"/>
                 </StackPanel>
-
-                <!-- Separator -->
                 <StackPanel Grid.Column="4">
                     <TextBlock Text="SEPARATOR" Style="{StaticResource LabelStyle}"/>
                     <StackPanel x:Name="CmbSeparator"/>
@@ -86,12 +120,81 @@
             </Grid>
         </Border>
 
+        <!-- ── CURRENT MODEL SHEETS ── -->
+        <TextBlock Text="CURRENT MODEL SHEETS" Style="{StaticResource SectionHeaderStyle}" Margin="0,4,0,10"/>
+
+        <Border Style="{StaticResource CardStyle}" Margin="0,0,0,14">
+            <StackPanel>
+
+                <!-- Header: status + Refresh button -->
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TxtSheetsStatus" Grid.Column="0" FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"
+                               Text="Click Refresh to load sheets from the model."/>
+                    <StackPanel x:Name="RefreshSheetsContainer" Grid.Column="1"/>
+                </Grid>
+
+                <!-- Sheet list — columns added in code-behind (AutoGenerateColumns=False) -->
+                <DataGrid x:Name="ModelSheetsGrid"
+                          AutoGenerateColumns="False"
+                          CanUserSortColumns="False"
+                          RowHeaderWidth="0"
+                          EnableRowVirtualization="True"
+                          CanUserAddRows="False"
+                          CanUserDeleteRows="False"
+                          SelectionMode="Extended"
+                          SelectionUnit="Row"
+                          HeadersVisibility="Column"
+                          MaxHeight="260"
+                          Margin="0,0,0,8"
+                          SelectionChanged="ModelSheetsGrid_SelectionChanged"/>
+
+                <!-- Selection count + Remove Selected -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TxtSelectionCount" Grid.Column="0" FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center"/>
+                    <StackPanel x:Name="RemoveSheetsContainer" Grid.Column="1"/>
+                </Grid>
+
+                <!-- Inline delete confirmation (collapsed until Remove Selected clicked) -->
+                <Border x:Name="DeleteConfirmPanel" Visibility="Collapsed"
+                        Margin="0,10,0,0" Padding="12,10,12,10"
+                        CornerRadius="6"
+                        Background="#FFF8DC"
+                        BorderBrush="#E0A800"
+                        BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock x:Name="TxtDeletePrompt" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#7B4F00" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                        <TextBox x:Name="TxtDeleteConfirm" Style="{StaticResource TextBoxStyle}"
+                                 Margin="0,0,0,8"
+                                 ToolTip="Type DELETE SHEETS exactly to enable the confirm button"
+                                 TextChanged="TxtDeleteConfirm_TextChanged"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <StackPanel x:Name="CancelDeleteContainer" Margin="0,0,8,0"/>
+                            <StackPanel x:Name="ConfirmDeleteContainer"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </Border>
+
         <!-- ── SHEET LIST PREVIEW ── -->
         <TextBlock Text="SHEET LIST PREVIEW" Style="{StaticResource SectionHeaderStyle}" Margin="0,4,0,10"/>
 
         <Border Style="{StaticResource CardStyle}">
             <StackPanel>
-                <!-- Header row -->
                 <Grid Margin="0,0,0,6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="120"/>
@@ -101,8 +204,6 @@
                     <TextBlock Grid.Column="1" Text="SHEET NAME"  Style="{StaticResource LabelStyle}"/>
                 </Grid>
                 <Rectangle Fill="{StaticResource BorderBrush_}" Height="1" Margin="0,0,0,8"/>
-
-                <!-- Generated preview rows -->
                 <ItemsControl x:Name="PreviewList">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -120,11 +221,11 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-
                 <TextBlock x:Name="TxtNoPreview" Text="Enable at least one discipline to see the preview."
                            FontSize="11" Foreground="{StaticResource TextTertiaryBrush}"
                            Margin="0,4,0,0" Visibility="Collapsed"/>
             </StackPanel>
         </Border>
+
     </StackPanel>
 </UserControl>
