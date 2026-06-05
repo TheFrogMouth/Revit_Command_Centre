@@ -327,44 +327,43 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
 
         private void BuildRenameGrid()
         {
-            // Columns: Current Name | Proposed Name | Status | Apply
-            // AutoGenerateColumns=False, no ControlTemplate usage
+            // DataGridCheckBoxColumn is intentionally omitted — its CheckBox ControlTemplate
+            // triggers crash on AMD GPU inside Revit. Use row selection instead.
             RenameGrid.Columns.Clear();
 
             RenameGrid.Columns.Add(new DataGridTextColumn
             {
-                Header  = "Current Name",
-                Binding = new System.Windows.Data.Binding("CurrentName") { Mode = System.Windows.Data.BindingMode.OneWay },
+                Header     = "Current Name",
+                Binding    = new System.Windows.Data.Binding("CurrentName") { Mode = System.Windows.Data.BindingMode.OneWay },
                 IsReadOnly = true,
-                Width = new DataGridLength(1, DataGridLengthUnitType.Star)
+                Width      = new DataGridLength(1, DataGridLengthUnitType.Star)
             });
             RenameGrid.Columns.Add(new DataGridTextColumn
             {
-                Header  = "Proposed Name",
-                Binding = new System.Windows.Data.Binding("ProposedName"),
+                Header     = "Proposed Name",
+                Binding    = new System.Windows.Data.Binding("ProposedName"),
                 IsReadOnly = false,
-                Width = new DataGridLength(1, DataGridLengthUnitType.Star)
+                Width      = new DataGridLength(1, DataGridLengthUnitType.Star)
             });
             RenameGrid.Columns.Add(new DataGridTextColumn
             {
-                Header  = "Status",
-                Binding = new System.Windows.Data.Binding("Status") { Mode = System.Windows.Data.BindingMode.OneWay },
+                Header     = "Status",
+                Binding    = new System.Windows.Data.Binding("Status") { Mode = System.Windows.Data.BindingMode.OneWay },
                 IsReadOnly = true,
-                Width = new DataGridLength(160)
-            });
-            RenameGrid.Columns.Add(new DataGridCheckBoxColumn
-            {
-                Header  = "Apply",
-                Binding = new System.Windows.Data.Binding("ApplyRename"),
-                Width   = new DataGridLength(60)
+                Width      = new DataGridLength(160)
             });
         }
 
         private void PopulateRenameGrid()
         {
-            RenameGrid.ItemsSource = _renameCandidates
-                .Select(c => new RenameRow(c))
-                .ToList();
+            var rows = _renameCandidates.Select(c => new RenameRow(c)).ToList();
+            RenameGrid.ItemsSource = rows;
+
+            // Pre-select rows that are auto-renameable (not compliant, no manual input needed).
+            // User can Ctrl/Shift-click to adjust the selection before clicking Rename selected.
+            RenameGrid.SelectedItems.Clear();
+            foreach (var row in rows.Where(r => r.ApplyRename))
+                RenameGrid.SelectedItems.Add(row);
         }
 
         private void BuildRenameActionBar()
@@ -384,10 +383,9 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
 
         private void RenameSelected_Click(object sender, MouseButtonEventArgs e)
         {
-            if (RenameGrid.ItemsSource is not List<RenameRow> rows) return;
-
-            var ops = rows
-                .Where(r => r.ApplyRename && !string.IsNullOrWhiteSpace(r.ProposedName))
+            var ops = RenameGrid.SelectedItems
+                .Cast<RenameRow>()
+                .Where(r => !string.IsNullOrWhiteSpace(r.ProposedName) && !r.IsCompliant)
                 .Select(r => new RenameOperation(r.CurrentPath, r.ProposedName))
                 .ToList();
 
@@ -473,6 +471,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
         public string CurrentName { get; }
         public string Status      { get; }
         public bool   CanEdit     { get; }
+        public bool   IsCompliant { get; }
 
         private string _proposedName;
         public string ProposedName
@@ -493,6 +492,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             CurrentPath   = candidate.CurrentPath;
             CurrentName   = System.IO.Path.GetFileName(candidate.CurrentPath);
             _proposedName = candidate.ProposedName;
+            IsCompliant   = candidate.IsCompliant;
             CanEdit       = !candidate.IsCompliant;
             _applyRename  = !candidate.IsCompliant && !candidate.NeedsManualInput;
             Status = candidate.IsCompliant    ? "✓ compliant"
