@@ -31,23 +31,26 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
         private readonly Picker _modePicker = new(new[] { "Update Parameters", "Rename to Convention" });
         private List<RenameCandidate> _renameCandidates = new();
 
-        private static readonly SolidColorBrush BrushInfo    = new(Color.FromRgb(0x18, 0x5F, 0xA5));
-        private static readonly SolidColorBrush BrushSuccess = new(Color.FromRgb(0x1D, 0x9E, 0x75));
-        private static readonly SolidColorBrush BrushWarn    = new(Color.FromRgb(0xBA, 0x75, 0x17));
-        private static readonly SolidColorBrush BrushError   = new(Color.FromRgb(0xE2, 0x4B, 0x4A));
-        private static readonly SolidColorBrush BrushBorder  = new(Color.FromArgb(0x1E, 0, 0, 0));
-        private static readonly SolidColorBrush BrushTxtPri  = new(Color.FromRgb(0x1A, 0x1A, 0x1A));
-        private static readonly SolidColorBrush BrushTxtSec  = new(Color.FromRgb(0x6B, 0x6B, 0x6B));
-        private static readonly FontFamily      ConsolasFont = new("Consolas");
-        private static readonly FontFamily      AppFont      = new("Segoe UI");
+        private static readonly SolidColorBrush BrushInfo       = new(Color.FromRgb(0x18, 0x5F, 0xA5));
+        private static readonly SolidColorBrush BrushSuccess    = new(Color.FromRgb(0x1D, 0x9E, 0x75));
+        private static readonly SolidColorBrush BrushWarn       = new(Color.FromRgb(0xBA, 0x75, 0x17));
+        private static readonly SolidColorBrush BrushError      = new(Color.FromRgb(0xE2, 0x4B, 0x4A));
+        private static readonly SolidColorBrush BrushBorder     = new(Color.FromArgb(0x1E, 0, 0, 0));
+        private static readonly SolidColorBrush BrushTxtPri     = new(Color.FromRgb(0x1A, 0x1A, 0x1A));
+        private static readonly SolidColorBrush BrushTxtSec     = new(Color.FromRgb(0x6B, 0x6B, 0x6B));
+        private static readonly SolidColorBrush BrushSelectedBg = new(Color.FromRgb(0xE6, 0xF1, 0xFB));
+        private static readonly FontFamily      ConsolasFont    = new("Consolas");
+        private static readonly FontFamily      AppFont         = new("Segoe UI");
 
         static UpdateFamiliesView()
         {
             BrushInfo.Freeze();    BrushSuccess.Freeze();
             BrushWarn.Freeze();    BrushError.Freeze();
             BrushBorder.Freeze();  BrushTxtPri.Freeze();
-            BrushTxtSec.Freeze();
+            BrushTxtSec.Freeze();  BrushSelectedBg.Freeze();
         }
+
+        private readonly HashSet<RenameRow> _selectedRenameRows = new();
 
         public UpdateFamiliesView(UIApplication uiApp)
         {
@@ -87,7 +90,6 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             // Rename panel
             BrowseRenameFolderContainer.Children.Add(
                 PickerHelper.MakeButton("Browse…", BrowseRenameFolder_Click));
-            BuildRenameGrid();
             BuildRenameActionBar();
         }
 
@@ -316,7 +318,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
         private void ScanAndBuildRenameTable(string folderPath)
         {
             _renameCandidates = FamilyRenameService.ScanFolder(folderPath);
-            PopulateRenameGrid();
+            PopulateRenameList();
             int total      = _renameCandidates.Count;
             int compliant  = _renameCandidates.Count(c => c.IsCompliant);
             int needsInput = _renameCandidates.Count(c => c.NeedsManualInput);
@@ -325,45 +327,144 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
                 $"{total} files found: {compliant} compliant, {autoRename} auto-rename, {needsInput} need manual input.";
         }
 
-        private void BuildRenameGrid()
+        private void PopulateRenameList()
         {
-            // DataGridCheckBoxColumn is intentionally omitted — its CheckBox ControlTemplate
-            // triggers crash on AMD GPU inside Revit. Use row selection instead.
-            RenameGrid.Columns.Clear();
+            _selectedRenameRows.Clear();
+            RenameListPanel.Children.Clear();
 
-            RenameGrid.Columns.Add(new DataGridTextColumn
+            if (_renameCandidates.Count == 0)
             {
-                Header     = "Current Name",
-                Binding    = new System.Windows.Data.Binding("CurrentName") { Mode = System.Windows.Data.BindingMode.OneWay },
-                IsReadOnly = true,
-                Width      = new DataGridLength(1, DataGridLengthUnitType.Star)
-            });
-            RenameGrid.Columns.Add(new DataGridTextColumn
+                RenameListPanel.Children.Add(new TextBlock
+                {
+                    Text = "No .rfa files found.", FontSize = 11,
+                    Foreground = BrushTxtSec, Margin = new Thickness(0, 4, 0, 4)
+                });
+                return;
+            }
+
+            // Header row
+            RenameListPanel.Children.Add(MakeRenameHeaderRow());
+
+            foreach (var candidate in _renameCandidates)
             {
-                Header     = "Proposed Name",
-                Binding    = new System.Windows.Data.Binding("ProposedName"),
-                IsReadOnly = false,
-                Width      = new DataGridLength(1, DataGridLengthUnitType.Star)
-            });
-            RenameGrid.Columns.Add(new DataGridTextColumn
-            {
-                Header     = "Status",
-                Binding    = new System.Windows.Data.Binding("Status") { Mode = System.Windows.Data.BindingMode.OneWay },
-                IsReadOnly = true,
-                Width      = new DataGridLength(160)
-            });
+                var row = new RenameRow(candidate);
+                bool preSelect = row.ApplyRename;
+                if (preSelect) _selectedRenameRows.Add(row);
+                RenameListPanel.Children.Add(MakeRenameRowBorder(row, preSelect));
+            }
         }
 
-        private void PopulateRenameGrid()
+        private static Border MakeRenameHeaderRow()
         {
-            var rows = _renameCandidates.Select(c => new RenameRow(c)).ToList();
-            RenameGrid.ItemsSource = rows;
+            var grid = MakeRenameRowGrid();
+            void AddHeader(int col, string text)
+            {
+                var tb = new TextBlock
+                {
+                    Text = text, FontSize = 10, FontWeight = FontWeights.SemiBold,
+                    Foreground = BrushTxtSec, VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(tb, col);
+                grid.Children.Add(tb);
+            }
+            AddHeader(0, "CURRENT NAME");
+            AddHeader(2, "PROPOSED NAME");
+            AddHeader(4, "STATUS");
+            return new Border
+            {
+                Padding = new Thickness(8, 4, 8, 4),
+                BorderBrush = BrushBorder, BorderThickness = new Thickness(0, 0, 0, 1),
+                Child = grid
+            };
+        }
 
-            // Pre-select rows that are auto-renameable (not compliant, no manual input needed).
-            // User can Ctrl/Shift-click to adjust the selection before clicking Rename selected.
-            RenameGrid.SelectedItems.Clear();
-            foreach (var row in rows.Where(r => r.ApplyRename))
-                RenameGrid.SelectedItems.Add(row);
+        private Border MakeRenameRowBorder(RenameRow row, bool selected)
+        {
+            var grid = MakeRenameRowGrid();
+
+            // Current name
+            var currentTb = new TextBlock
+            {
+                Text = row.CurrentName, FontSize = 11, Foreground = BrushTxtPri,
+                TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(currentTb, 0);
+            grid.Children.Add(currentTb);
+
+            // Proposed name — editable TextBox for rows that need input, plain TextBlock otherwise
+            if (row.CanEdit)
+            {
+                var tb = new System.Windows.Controls.TextBox
+                {
+                    Text = row.ProposedName, FontSize = 11,
+                    Background = Brushes.White, Padding = new Thickness(4, 2, 4, 2),
+                    VerticalContentAlignment = VerticalAlignment.Center, FontFamily = AppFont
+                };
+                tb.TextChanged += (_, _) => row.ProposedName = tb.Text;
+                Grid.SetColumn(tb, 2);
+                grid.Children.Add(tb);
+            }
+            else
+            {
+                var tb = new TextBlock
+                {
+                    Text = row.ProposedName, FontSize = 11, Foreground = BrushTxtSec,
+                    TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center
+                };
+                Grid.SetColumn(tb, 2);
+                grid.Children.Add(tb);
+            }
+
+            // Status
+            var statusBrush = row.Status.StartsWith("✓") ? BrushTxtSec
+                            : row.Status.StartsWith("⚠") ? BrushWarn
+                            : BrushInfo;
+            var statusTb = new TextBlock
+            {
+                Text = row.Status, FontSize = 11, Foreground = statusBrush,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(statusTb, 4);
+            grid.Children.Add(statusTb);
+
+            var border = new Border
+            {
+                Padding = new Thickness(8, 5, 8, 5),
+                Background = selected ? BrushSelectedBg : Brushes.White,
+                BorderBrush = BrushBorder, BorderThickness = new Thickness(0, 0, 0, 1),
+                Cursor = row.IsCompliant ? Cursors.Arrow : Cursors.Hand,
+                Child = grid
+            };
+
+            if (!row.IsCompliant)
+            {
+                border.MouseLeftButtonUp += (_, _) =>
+                {
+                    if (_selectedRenameRows.Contains(row))
+                    {
+                        _selectedRenameRows.Remove(row);
+                        border.Background = Brushes.White;
+                    }
+                    else
+                    {
+                        _selectedRenameRows.Add(row);
+                        border.Background = BrushSelectedBg;
+                    }
+                };
+            }
+
+            return border;
+        }
+
+        private static Grid MakeRenameRowGrid()
+        {
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
+            return grid;
         }
 
         private void BuildRenameActionBar()
@@ -383,15 +484,14 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
 
         private void RenameSelected_Click(object sender, MouseButtonEventArgs e)
         {
-            var ops = RenameGrid.SelectedItems
-                .Cast<RenameRow>()
+            var ops = _selectedRenameRows
                 .Where(r => !string.IsNullOrWhiteSpace(r.ProposedName) && !r.IsCompliant)
                 .Select(r => new RenameOperation(r.CurrentPath, r.ProposedName))
                 .ToList();
 
             if (ops.Count == 0)
             {
-                TxtRenameStatus.Text = "No rows checked. Tick the Apply checkbox for rows you want to rename.";
+                TxtRenameStatus.Text = "Select rows to rename by clicking them (blue = selected).";
                 return;
             }
 
