@@ -58,48 +58,59 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            var settings = AppSettingsService.Load();
-            if (!string.IsNullOrEmpty(settings.TitleBlockFolder))
-                TxtTitleBlockFolder.Text = settings.TitleBlockFolder;
-
-            BrowseTitleBlockFolderContainer.Children.Add(
-                PickerHelper.MakeButton("Browse…", BrowseTitleBlockFolder_Click));
-
-            PickerHelper.Refresh(CmbLanguage,   _language,   UpdatePreview);
-            PickerHelper.Refresh(CmbTitleBlock, _titleBlock, UpdatePreview);
-            ApplyTierStyles();
-
-            if (_isProjectSaved)
+            try
             {
-                LockField(TxtProjectName,   LblProjectName);
-                LockField(TxtProjectNumber, LblProjectNumber);
+                var settings = AppSettingsService.Load();
+                if (!string.IsNullOrEmpty(settings.TitleBlockFolder))
+                    TxtTitleBlockFolder.Text = settings.TitleBlockFolder;
 
-                var doc = _uiApp.ActiveUIDocument?.Document;
-                if (doc != null)
+                BrowseTitleBlockFolderContainer.Children.Add(
+                    PickerHelper.MakeButton("Browse…", BrowseTitleBlockFolder_Click));
+
+                PickerHelper.Refresh(CmbLanguage,   _language,   UpdatePreview);
+                PickerHelper.Refresh(CmbTitleBlock, _titleBlock, UpdatePreview);
+                ApplyTierStyles();
+
+                if (_isProjectSaved)
                 {
-                    TxtProjectName.Text   = doc.ProjectInformation.Name;
-                    TxtProjectNumber.Text = doc.ProjectInformation.Number;
-                    TxtClientName.Text    = doc.ProjectInformation.ClientName;
+                    LockField(TxtProjectName,   LblProjectName);
+                    LockField(TxtProjectNumber, LblProjectNumber);
 
-                    ProjectConfig? config = null;
-                    try { config = ExtensibleStorageService.ReadConfig(doc); } catch { }
-                    if (config == null && !string.IsNullOrEmpty(doc.PathName))
-                        config = ConfigService.LoadConfig(doc.PathName);
-                    if (config != null)
+                    var doc = _uiApp.ActiveUIDocument?.Document;
+                    if (doc != null)
                     {
-                        SetPickerByValue(_language,   CmbLanguage,   config.Language,   "English");
-                        SetPickerByValue(_titleBlock, CmbTitleBlock, config.TitleBlock,  "Standard A1");
-                        _selectedTier = Math.Clamp(config.ComplianceTier, 1, 3);
-                        ApplyTierStyles();
+                        try
+                        {
+                            TxtProjectName.Text   = doc.ProjectInformation.Name;
+                            TxtProjectNumber.Text = doc.ProjectInformation.Number;
+                            TxtClientName.Text    = doc.ProjectInformation.ClientName;
+                        }
+                        catch { }
+
+                        ProjectConfig? config = null;
+                        try { config = ExtensibleStorageService.ReadConfig(doc); } catch { }
+                        if (config == null && !string.IsNullOrEmpty(doc.PathName))
+                            config = ConfigService.LoadConfig(doc.PathName);
+                        if (config != null)
+                        {
+                            SetPickerByValue(_language,   CmbLanguage,   config.Language,   "English");
+                            SetPickerByValue(_titleBlock, CmbTitleBlock, config.TitleBlock,  "Standard A1");
+                            _selectedTier = Math.Clamp(config.ComplianceTier, 1, 3);
+                            ApplyTierStyles();
+                        }
                     }
                 }
-            }
 
-            BuildTemplatesButton();
-            BuildApplyTbButton();
-            FetchTitleBlockParams();
-            PopulateWorksets();
-            UpdatePreview();
+                BuildTemplatesButton();
+                BuildApplyTbButton();
+                // Defer title-block parameter fetch so it fires after Revit enters idle state,
+                // not while it may still be processing the open-panel command.
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background,
+                    new Action(FetchTitleBlockParams));
+                PopulateWorksets();
+                UpdatePreview();
+            }
+            catch { /* prevent any startup exception from propagating to Revit's dispatcher */ }
         }
 
         private static void LockField(TextBox box, TextBlock label)
@@ -255,14 +266,21 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
             WorksetActionContainer.Children.Clear();
             WorksetsList.Children.Clear();
 
-            var doc = _uiApp.ActiveUIDocument?.Document;
+            Autodesk.Revit.DB.Document? doc;
+            try { doc = _uiApp.ActiveUIDocument?.Document; }
+            catch { TxtWorksetsStatus.Text = "Workset info unavailable outside API context."; return; }
+
             if (doc == null)
             {
                 TxtWorksetsStatus.Text = "No project open.";
                 return;
             }
 
-            if (!doc.IsWorkshared)
+            bool isWorkshared;
+            try { isWorkshared = doc.IsWorkshared; }
+            catch { TxtWorksetsStatus.Text = "Workset info unavailable outside API context."; return; }
+
+            if (!isWorkshared)
             {
                 TxtWorksetsStatus.Text = "Worksharing is not enabled on this project.";
                 return;
@@ -272,12 +290,17 @@ namespace Revit_Command_Centre.Modules.ProjectSetup
             WorksetActionContainer.Children.Add(
                 PickerHelper.MakeButton("+ Add workset", ShowAddWorksetPanel_Click));
 
-            var worksets = new Autodesk.Revit.DB.FilteredElementCollector(doc)
-                .OfClass(typeof(Autodesk.Revit.DB.Workset))
-                .Cast<Autodesk.Revit.DB.Workset>()
-                .Where(ws => ws.Kind == Autodesk.Revit.DB.WorksetKind.UserCreated)
-                .OrderBy(ws => ws.Name)
-                .ToList();
+            List<Autodesk.Revit.DB.Workset> worksets;
+            try
+            {
+                worksets = new Autodesk.Revit.DB.FilteredElementCollector(doc)
+                    .OfClass(typeof(Autodesk.Revit.DB.Workset))
+                    .Cast<Autodesk.Revit.DB.Workset>()
+                    .Where(ws => ws.Kind == Autodesk.Revit.DB.WorksetKind.UserWorkset)
+                    .OrderBy(ws => ws.Name)
+                    .ToList();
+            }
+            catch { TxtWorksetsStatus.Text = "Could not load worksets."; return; }
 
             if (worksets.Count == 0)
             {

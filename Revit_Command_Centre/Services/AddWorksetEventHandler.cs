@@ -31,7 +31,7 @@ namespace Revit_Command_Centre.Services
                 bool exists = new FilteredElementCollector(doc)
                     .OfClass(typeof(Workset))
                     .Cast<Workset>()
-                    .Any(ws => ws.Kind == WorksetKind.UserCreated &&
+                    .Any(ws => ws.Kind == WorksetKind.UserWorkset &&
                                ws.Name.Equals(WorksetName, StringComparison.OrdinalIgnoreCase));
 
                 if (exists)

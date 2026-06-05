@@ -43,8 +43,13 @@ namespace Revit_Command_Centre.Services
             if (Mode == OperationMode.FetchParameters)
             {
                 var parameters = TitleBlockService.GetTitleBlockParameters(doc);
-                // BeginInvoke so we don't block the Revit API thread waiting on the UI thread
-                Application.Current.Dispatcher.BeginInvoke(() => OnParametersFetched?.Invoke(parameters));
+                // BeginInvoke so we don't block the Revit API thread.
+                // Wrap in try/catch: an unhandled exception on the dispatcher thread crashes Revit.
+                Application.Current?.Dispatcher.BeginInvoke(() =>
+                {
+                    try { OnParametersFetched?.Invoke(parameters); }
+                    catch { /* swallow — don't propagate to Revit's dispatcher */ }
+                });
                 return;
             }
 
