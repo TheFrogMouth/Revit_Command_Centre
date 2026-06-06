@@ -493,94 +493,115 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
 
         /// <summary>
         /// Builds the inline form that guides the user through the naming convention:
-        /// [TYPE]-[SUBTYPE]-[WIDTH]x[HEIGHT]-v[N].rfa
+        /// CATCODE-Type_Name_Size.rfa   e.g.  ELEC-Transformer_Trihal_Schneider_100kVA.rfa
         /// </summary>
         private static Border MakeNamingHelperPanel(
             RenameRow row, Border outerBorder, HashSet<RenameRow> selectedRows)
         {
-            // Parse the partial proposed name (e.g. "Door-Single-{WxH}-v1.rfa")
+            // Parse partial proposed name to pre-fill fields.
+            // Format from ProposeCompliantName: "{CAT}-Type_Name_Size" or "ELEC-Type_Name_Size"
             string nameNoExt = row.ProposedName.Replace(".rfa", "", StringComparison.OrdinalIgnoreCase);
-            string[] parts   = nameNoExt.Split('-');
+            int dashIdx = nameNoExt.IndexOf('-');
 
-            string preVersion = parts.FirstOrDefault(
-                p => Regex.IsMatch(p, @"^v\d+$", RegexOptions.IgnoreCase)) ?? "v1";
+            string preCat  = dashIdx > 0 ? nameNoExt[..dashIdx] : "";
+            string body    = dashIdx > 0 ? nameNoExt[(dashIdx + 1)..] : nameNoExt;
 
-            string[] mainParts = parts
-                .Where(p => !Regex.IsMatch(p, @"^v\d+$", RegexOptions.IgnoreCase) && !p.StartsWith("{"))
-                .ToArray();
+            // If category is the placeholder, clear it so the field shows empty
+            if (preCat == "{CAT}") preCat = "";
 
-            string preType    = mainParts.Length > 0 ? mainParts[0] : "";
-            string preSubtype = mainParts.Length > 1 ? mainParts[1] : "";
+            // Split body by underscores: first token = Type, last = Size (if looks like a rating),
+            // middle = Name tokens
+            string[] bodyParts = body.Split('_', StringSplitOptions.RemoveEmptyEntries);
+            string preType = bodyParts.Length > 0 ? bodyParts[0] : "";
+            string preSize = "";
+            var    nameTokens = new List<string>();
 
-            var txType    = MakeHelperTextBox(preType,    "e.g. Door");
-            var txSubtype = MakeHelperTextBox(preSubtype, "e.g. Single (optional)");
-            var txWidth   = MakeHelperTextBox("",         "e.g. 0900");
-            var txHeight  = MakeHelperTextBox("",         "e.g. 2100");
-            var txVersion = MakeHelperTextBox(preVersion, "v1");
+            if (bodyParts.Length > 1)
+            {
+                // Last token is size if it starts with a digit or looks like DN\d+
+                string last = bodyParts[^1];
+                bool looksLikeSize = char.IsDigit(last[0])
+                    || last.StartsWith("DN", StringComparison.OrdinalIgnoreCase);
+
+                int nameEnd = looksLikeSize ? bodyParts.Length - 1 : bodyParts.Length;
+                nameTokens.AddRange(bodyParts[1..nameEnd]);
+                if (looksLikeSize) preSize = last;
+            }
+
+            string preName = string.Join("_", nameTokens);
+
+            var txCat  = MakeHelperTextBox(preCat,  "ELEC · LIGHT · MECH · PLUMB · ARCH · FIRE");
+            var txType = MakeHelperTextBox(preType,  "e.g. Transformer, Panel, AHU");
+            var txName = MakeHelperTextBox(preName,  "e.g. Trihal_Schneider_DryType  (use _ to separate)");
+            var txSize = MakeHelperTextBox(preSize,  "e.g. 100kVA, 400A, 150mm  (optional)");
 
             var previewTb = new TextBlock { FontSize = 11, Margin = new Thickness(0, 6, 0, 0) };
 
             void Rebuild()
             {
-                string t = txType.Text.Trim(), st = txSubtype.Text.Trim();
-                string w = txWidth.Text.Trim(), h = txHeight.Text.Trim();
-                string v = txVersion.Text.Trim();
-                if (string.IsNullOrEmpty(v)) v = "v1";
-                if (!v.StartsWith("v", StringComparison.OrdinalIgnoreCase)) v = "v" + v;
+                string cat  = txCat.Text.Trim().ToUpperInvariant();
+                string type = txType.Text.Trim();
+                string name = txName.Text.Trim().Replace(' ', '_');
+                string size = txSize.Text.Trim();
 
-                bool valid = !string.IsNullOrEmpty(t) && !string.IsNullOrEmpty(w) && !string.IsNullOrEmpty(h);
-                var tokens = new List<string>();
-                if (!string.IsNullOrEmpty(t))  tokens.Add(Capitalise(t));
-                if (!string.IsNullOrEmpty(st)) tokens.Add(Capitalise(st));
-                tokens.Add(!string.IsNullOrEmpty(w) && !string.IsNullOrEmpty(h) ? $"{w}x{h}" : "{WxH}");
-                tokens.Add(v.ToLowerInvariant());
+                bool valid = !string.IsNullOrEmpty(cat) && cat != "{CAT}"
+                          && !string.IsNullOrEmpty(type);
 
-                previewTb.Text       = "→  " + string.Join("-", tokens) + ".rfa";
+                var parts = new List<string>();
+                if (!string.IsNullOrEmpty(type)) parts.Add(Capitalise(type));
+                if (!string.IsNullOrEmpty(name)) parts.AddRange(
+                    name.Split('_', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(t => char.IsDigit(t[0]) ? t : Capitalise(t)));
+                if (!string.IsNullOrEmpty(size)) parts.Add(size);
+
+                string catDisplay = string.IsNullOrEmpty(cat) ? "{CAT}" : cat;
+                string bodyStr    = parts.Count > 0 ? string.Join("_", parts) : "Family";
+
+                previewTb.Text       = $"→  {catDisplay}-{bodyStr}.rfa";
                 previewTb.Foreground = valid ? BrushSuccess : BrushWarn;
             }
 
-            txType.TextChanged    += (_, _) => Rebuild();
-            txSubtype.TextChanged += (_, _) => Rebuild();
-            txWidth.TextChanged   += (_, _) => Rebuild();
-            txHeight.TextChanged  += (_, _) => Rebuild();
-            txVersion.TextChanged += (_, _) => Rebuild();
+            txCat.TextChanged  += (_, _) => Rebuild();
+            txType.TextChanged += (_, _) => Rebuild();
+            txName.TextChanged += (_, _) => Rebuild();
+            txSize.TextChanged += (_, _) => Rebuild();
             Rebuild();
 
             var applyBtn = PickerHelper.MakeButton("Apply", (object _, MouseButtonEventArgs _) =>
             {
-                string t = txType.Text.Trim(), st = txSubtype.Text.Trim();
-                string w = txWidth.Text.Trim(), h = txHeight.Text.Trim();
-                string v = txVersion.Text.Trim();
-                if (string.IsNullOrEmpty(v)) v = "v1";
-                if (!v.StartsWith("v", StringComparison.OrdinalIgnoreCase)) v = "v" + v;
+                string cat  = txCat.Text.Trim().ToUpperInvariant();
+                string type = txType.Text.Trim();
+                string name = txName.Text.Trim().Replace(' ', '_');
+                string size = txSize.Text.Trim();
 
-                if (string.IsNullOrEmpty(t) || string.IsNullOrEmpty(w) || string.IsNullOrEmpty(h))
+                if (string.IsNullOrEmpty(cat) || string.IsNullOrEmpty(type))
                 {
-                    previewTb.Text       = "⚠  Type, Width and Height are required.";
+                    previewTb.Text       = "⚠  Category Code and Type are required.";
                     previewTb.Foreground = BrushError;
                     return;
                 }
 
-                var tokens = new List<string>();
-                tokens.Add(Capitalise(t));
-                if (!string.IsNullOrEmpty(st)) tokens.Add(Capitalise(st));
-                tokens.Add($"{w}x{h}");
-                tokens.Add(v.ToLowerInvariant());
+                var parts = new List<string>();
+                parts.Add(Capitalise(type));
+                if (!string.IsNullOrEmpty(name)) parts.AddRange(
+                    name.Split('_', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(t => char.IsDigit(t[0]) ? t : Capitalise(t)));
+                if (!string.IsNullOrEmpty(size)) parts.Add(size);
 
-                row.ProposedName = string.Join("-", tokens) + ".rfa";
+                row.ProposedName = $"{cat}-{string.Join("_", parts)}.rfa";
 
                 if (!selectedRows.Contains(row)) selectedRows.Add(row);
                 outerBorder.Background = BrushSelectedBg;
             }, height: 28);
 
-            // Input grid — TYPE | gap | SUBTYPE | gap | WIDTH | gap | HEIGHT | gap | VERSION
+            // Input grid — CAT | gap | TYPE | gap | NAME (wide) | gap | SIZE
             var inputGrid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
-            foreach (var w2 in new GridLength[]
+            foreach (var w in new GridLength[]
             {
-                new(1, GridUnitType.Star), new(8), new(1, GridUnitType.Star),
-                new(8), new(70), new(8), new(70), new(8), new(50)
+                new(70), new(8), new(120), new(8),
+                new(1, GridUnitType.Star), new(8), new(120)
             })
-                inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = w2 });
+                inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
 
             void AddField(int col, System.Windows.Controls.TextBox tb, string label)
             {
@@ -594,11 +615,10 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
                 inputGrid.Children.Add(sp);
             }
 
-            AddField(0, txType,    "TYPE");
-            AddField(2, txSubtype, "SUBTYPE");
-            AddField(4, txWidth,   "WIDTH");
-            AddField(6, txHeight,  "HEIGHT");
-            AddField(8, txVersion, "VERSION");
+            AddField(0, txCat,  "CATEGORY");
+            AddField(2, txType, "TYPE");
+            AddField(4, txName, "NAME (brand / model)");
+            AddField(6, txSize, "SIZE (rating)");
 
             // Preview row with Apply button
             var previewRow = new Grid { Margin = new Thickness(0, 4, 0, 0) };
@@ -616,7 +636,8 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             var content = new StackPanel { Margin = new Thickness(0, 6, 0, 2) };
             content.Children.Add(new TextBlock
             {
-                Text = "Build convention name:  [TYPE]-[SUBTYPE]-[W]x[H]-v[N].rfa",
+                Text = "Convention:  CATCODE-Type_Name_Size.rfa  " +
+                       "e.g.  ELEC-Transformer_Trihal_Schneider_100kVA.rfa",
                 FontSize = 10, Foreground = BrushTxtSec, Margin = new Thickness(0, 0, 0, 6)
             });
             content.Children.Add(inputGrid);
@@ -673,7 +694,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
         {
             var ops = _selectedRenameRows
                 .Where(r => !string.IsNullOrWhiteSpace(r.ProposedName) && !r.IsCompliant
-                            && !r.ProposedName.Contains("{WxH}"))
+                            && !r.ProposedName.Contains("{CAT}"))
                 .Select(r => new RenameOperation(r.CurrentPath, r.ProposedName))
                 .ToList();
 
@@ -681,7 +702,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             {
                 TxtRenameStatus.Text =
                     "No rows ready to rename. For \"→ rename\" rows: click them to select (blue = selected). " +
-                    "For \"⚠ needs input\" rows: click \"▸ fill in\", complete the form, then click Apply.";
+                    "For \"⚠ needs input\" rows: click \"▸ fill in\", fill the form, then click Apply.";
                 return;
             }
 
