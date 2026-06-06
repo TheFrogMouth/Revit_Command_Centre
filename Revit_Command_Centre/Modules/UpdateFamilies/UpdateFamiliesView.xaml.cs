@@ -379,7 +379,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             // Proposed name — editable for non-compliant rows
             if (row.CanEdit)
             {
-                var proposedTb = new TextBox
+                var proposedTb = new System.Windows.Controls.TextBox
                 {
                     Text = row.ProposedName, FontSize = 11, FontFamily = AppFont,
                     Background = Brushes.White, Padding = new Thickness(4, 2, 4, 2),
@@ -582,7 +582,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             })
                 inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = w2 });
 
-            void AddField(int col, TextBox tb, string label)
+            void AddField(int col, System.Windows.Controls.TextBox tb, string label)
             {
                 var sp = new StackPanel();
                 sp.Children.Add(new TextBlock
@@ -631,8 +631,8 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             };
         }
 
-        private static TextBox MakeHelperTextBox(string text, string toolTip) =>
-            new()
+        private static System.Windows.Controls.TextBox MakeHelperTextBox(string text, string toolTip) =>
+            new System.Windows.Controls.TextBox
             {
                 Text = text, FontSize = 11, FontFamily = AppFont,
                 Background = Brushes.White, Padding = new Thickness(4, 3, 4, 3),
