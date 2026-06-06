@@ -46,6 +46,10 @@ namespace Revit_Command_Centre.Services
             @"\b(?:DN\d+|\d+(?:[xX×]\d+)?(?:mm|cm|m)\b)",
             RegexOptions.Compiled);
 
+        /// <summary>Fixed ordered list of all supported category codes.</summary>
+        public static IReadOnlyList<string> AllCategories { get; } =
+            new[] { "ELEC", "LIGHT", "MECH", "PLUMB", "ARCH", "STRUCT", "FIRE" };
+
         // Keyword table → (lowercase match, CATCODE, canonical TypeWord)
         private static readonly (string Key, string Cat, string Type)[] Keywords =
         {
@@ -90,12 +94,32 @@ namespace Revit_Command_Centre.Services
             ("valve",        "PLUMB",  "Valve"),
             ("fitting",      "PLUMB",  "Fitting"),
             ("pipe",         "PLUMB",  "Pipe"),
+            // Architectural
+            ("door",         "ARCH",   "Door"),
+            ("window",       "ARCH",   "Window"),
+            ("stair",        "ARCH",   "Stair"),
+            ("railing",      "ARCH",   "Railing"),
+            ("ceiling",      "ARCH",   "Ceiling"),
+            // Structural
+            ("beam",         "STRUCT", "Beam"),
+            ("column",       "STRUCT", "Column"),
+            ("foundation",   "STRUCT", "Foundation"),
+            ("slab",         "STRUCT", "Slab"),
+            ("brace",        "STRUCT", "Brace"),
             // Fire
             ("sprinkler",    "FIRE",   "Sprinkler"),
             ("detector",     "FIRE",   "Detector"),
             ("hydrant",      "FIRE",   "Hydrant"),
             ("hose",         "FIRE",   "HoseReel"),
         };
+
+        /// <summary>Returns the canonical type names for the given category code.</summary>
+        public static IReadOnlyList<string> GetTypesForCategory(string catCode) =>
+            Keywords
+                .Where(k => k.Cat.Equals(catCode, StringComparison.OrdinalIgnoreCase))
+                .Select(k => k.Type)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
         public static List<RenameCandidate> ScanFolder(string folderPath)
         {

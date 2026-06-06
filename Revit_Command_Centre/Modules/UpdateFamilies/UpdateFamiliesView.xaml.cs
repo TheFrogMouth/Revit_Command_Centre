@@ -31,6 +31,8 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
         private readonly Picker _modePicker = new(new[] { "Update Parameters", "Rename to Convention" });
         private List<RenameCandidate> _renameCandidates = new();
         private readonly HashSet<RenameRow> _selectedRenameRows = new();
+        // Populated when scanning; maps CATCODE → set of type tokens found in compliant files
+        private Dictionary<string, HashSet<string>> _existingTypesByCategory = new();
 
         private static readonly SolidColorBrush BrushInfo       = new(Color.FromRgb(0x18, 0x5F, 0xA5));
         private static readonly SolidColorBrush BrushSuccess    = new(Color.FromRgb(0x1D, 0x9E, 0x75));
@@ -311,9 +313,29 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
                 $"{total} files — {compliant} already compliant, {autoRename} auto-rename, {needsInput} need input.";
         }
 
+        private Dictionary<string, HashSet<string>> BuildExistingTypesByCategory()
+        {
+            var result = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var c in _renameCandidates.Where(c => c.IsCompliant))
+            {
+                string nameNoExt = Path.GetFileNameWithoutExtension(c.CurrentPath);
+                int dash = nameNoExt.IndexOf('-');
+                if (dash < 0) continue;
+                string cat  = nameNoExt[..dash];
+                string body = nameNoExt[(dash + 1)..];
+                string type = body.Split('_')[0];
+                if (string.IsNullOrEmpty(type)) continue;
+                if (!result.TryGetValue(cat, out var set))
+                    result[cat] = set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                set.Add(type);
+            }
+            return result;
+        }
+
         private void PopulateRenameList()
         {
             _selectedRenameRows.Clear();
+            _existingTypesByCategory = BuildExistingTypesByCategory();
             RenameListPanel.Children.Clear();
 
             if (_renameCandidates.Count == 0)
@@ -439,7 +461,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
                 grid.Children.Add(statusStack);
 
                 // Inline naming helper panel (collapsed until expand link is clicked)
-                var helperPanel = MakeNamingHelperPanel(row, border, _selectedRenameRows);
+                var helperPanel = MakeNamingHelperPanel(row, border, _selectedRenameRows, _existingTypesByCategory);
                 helperPanel.Visibility = Visibility.Collapsed;
                 outerStack.Children.Add(helperPanel);
 
@@ -492,160 +514,241 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
         }
 
         /// <summary>
-        /// Builds the inline form that guides the user through the naming convention:
-        /// CATCODE-Type_Name_Size.rfa   e.g.  ELEC-Transformer_Trihal_Schneider_100kVA.rfa
+        /// Builds the inline naming form:  CATCODE-Type_Name_Size.rfa
+        /// Category and Type use chip pickers (WrapPanel — no ControlTemplate, AMD-safe).
+        /// existingTypes contains types already found in this folder per CATCODE.
         /// </summary>
         private static Border MakeNamingHelperPanel(
-            RenameRow row, Border outerBorder, HashSet<RenameRow> selectedRows)
+            RenameRow row, Border outerBorder, HashSet<RenameRow> selectedRows,
+            IReadOnlyDictionary<string, HashSet<string>> existingTypes)
         {
-            // Parse partial proposed name to pre-fill fields.
-            // Format from ProposeCompliantName: "{CAT}-Type_Name_Size" or "ELEC-Type_Name_Size"
+            // ── parse pre-fill values ─────────────────────────────────────────────────
             string nameNoExt = row.ProposedName.Replace(".rfa", "", StringComparison.OrdinalIgnoreCase);
-            int dashIdx = nameNoExt.IndexOf('-');
-
-            string preCat  = dashIdx > 0 ? nameNoExt[..dashIdx] : "";
-            string body    = dashIdx > 0 ? nameNoExt[(dashIdx + 1)..] : nameNoExt;
-
-            // If category is the placeholder, clear it so the field shows empty
+            int    dashIdx   = nameNoExt.IndexOf('-');
+            string preCat    = dashIdx > 0 ? nameNoExt[..dashIdx] : "";
+            string body      = dashIdx > 0 ? nameNoExt[(dashIdx + 1)..] : nameNoExt;
             if (preCat == "{CAT}") preCat = "";
 
-            // Split body by underscores: first token = Type, last = Size (if looks like a rating),
-            // middle = Name tokens
             string[] bodyParts = body.Split('_', StringSplitOptions.RemoveEmptyEntries);
-            string preType = bodyParts.Length > 0 ? bodyParts[0] : "";
-            string preSize = "";
-            var    nameTokens = new List<string>();
+            string   preType   = bodyParts.Length > 0 ? bodyParts[0] : "";
+            string   preSize   = "";
+            var      nameParts = new List<string>();
 
             if (bodyParts.Length > 1)
             {
-                // Last token is size if it starts with a digit or looks like DN\d+
-                string last = bodyParts[^1];
-                bool looksLikeSize = char.IsDigit(last[0])
-                    || last.StartsWith("DN", StringComparison.OrdinalIgnoreCase);
-
-                int nameEnd = looksLikeSize ? bodyParts.Length - 1 : bodyParts.Length;
-                nameTokens.AddRange(bodyParts[1..nameEnd]);
-                if (looksLikeSize) preSize = last;
+                string last   = bodyParts[^1];
+                bool   isSize = last.Length > 1 && (char.IsDigit(last[0])
+                    || last.StartsWith("DN", StringComparison.OrdinalIgnoreCase));
+                int nameEnd = isSize ? bodyParts.Length - 1 : bodyParts.Length;
+                nameParts.AddRange(bodyParts[1..nameEnd]);
+                if (isSize) preSize = last;
             }
 
-            string preName = string.Join("_", nameTokens);
+            // ── mutable state ─────────────────────────────────────────────────────────
+            string selCat  = preCat;
+            string selType = preType;
 
-            var txCat  = MakeHelperTextBox(preCat,  "ELEC · LIGHT · MECH · PLUMB · ARCH · FIRE");
-            var txType = MakeHelperTextBox(preType,  "e.g. Transformer, Panel, AHU");
-            var txName = MakeHelperTextBox(preName,  "e.g. Trihal_Schneider_DryType  (use _ to separate)");
-            var txSize = MakeHelperTextBox(preSize,  "e.g. 100kVA, 400A, 150mm  (optional)");
+            // ── text inputs ───────────────────────────────────────────────────────────
+            var txType = MakeHelperTextBox(selType, "Or type a custom type name here");
+            var txName = MakeHelperTextBox(string.Join("_", nameParts), "Brand/model tokens e.g. Trihal_Schneider");
+            var txSize = MakeHelperTextBox(preSize, "e.g. 100kVA, 400A, 150mm  (optional)");
 
+            // ── preview ───────────────────────────────────────────────────────────────
             var previewTb = new TextBlock { FontSize = 11, Margin = new Thickness(0, 6, 0, 0) };
 
             void Rebuild()
             {
-                string cat  = txCat.Text.Trim().ToUpperInvariant();
                 string type = txType.Text.Trim();
                 string name = txName.Text.Trim().Replace(' ', '_');
                 string size = txSize.Text.Trim();
-
-                bool valid = !string.IsNullOrEmpty(cat) && cat != "{CAT}"
-                          && !string.IsNullOrEmpty(type);
+                bool   valid = !string.IsNullOrEmpty(selCat) && !string.IsNullOrEmpty(type);
 
                 var parts = new List<string>();
                 if (!string.IsNullOrEmpty(type)) parts.Add(Capitalise(type));
-                if (!string.IsNullOrEmpty(name)) parts.AddRange(
-                    name.Split('_', StringSplitOptions.RemoveEmptyEntries)
+                if (!string.IsNullOrEmpty(name))
+                    parts.AddRange(name.Split('_', StringSplitOptions.RemoveEmptyEntries)
                         .Select(t => char.IsDigit(t[0]) ? t : Capitalise(t)));
                 if (!string.IsNullOrEmpty(size)) parts.Add(size);
 
-                string catDisplay = string.IsNullOrEmpty(cat) ? "{CAT}" : cat;
-                string bodyStr    = parts.Count > 0 ? string.Join("_", parts) : "Family";
-
-                previewTb.Text       = $"→  {catDisplay}-{bodyStr}.rfa";
+                string catDisplay = string.IsNullOrEmpty(selCat) ? "{CAT}" : selCat;
+                previewTb.Text       = $"→  {catDisplay}-{string.Join("_", parts.DefaultIfEmpty("Family"))}.rfa";
                 previewTb.Foreground = valid ? BrushSuccess : BrushWarn;
             }
 
-            txCat.TextChanged  += (_, _) => Rebuild();
-            txType.TextChanged += (_, _) => Rebuild();
+            txType.TextChanged += (_, _) => { selType = txType.Text.Trim(); Rebuild(); };
             txName.TextChanged += (_, _) => Rebuild();
             txSize.TextChanged += (_, _) => Rebuild();
+
+            // ── chip builder (WrapPanel = Panel subclass, no ControlTemplate) ─────────
+            var catChips  = new WrapPanel();
+            var typeChips = new WrapPanel();
+
+            static Border MakeChip(string label, bool selected)
+            {
+                return new Border
+                {
+                    Margin = new Thickness(0, 0, 4, 4), Padding = new Thickness(8, 3, 8, 3),
+                    CornerRadius = new CornerRadius(3), BorderThickness = new Thickness(1),
+                    BorderBrush = selected ? BrushInfo : BrushBorder,
+                    Background  = selected ? BrushSelectedBg : Brushes.White,
+                    Cursor = Cursors.Hand,
+                    Child = new TextBlock
+                    {
+                        Text = label, FontSize = 10, FontFamily = AppFont,
+                        Foreground = selected ? BrushInfo : BrushTxtSec,
+                        VerticalAlignment = VerticalAlignment.Center
+                    }
+                };
+            }
+
+            void BuildTypeChips()
+            {
+                typeChips.Children.Clear();
+                var common = FamilyRenameService.GetTypesForCategory(selCat);
+                existingTypes.TryGetValue(selCat, out var folder);
+
+                var allTypes = common.ToList();
+                if (folder != null)
+                    foreach (string ft in folder.OrderBy(x => x))
+                        if (!allTypes.Any(t => t.Equals(ft, StringComparison.OrdinalIgnoreCase)))
+                            allTypes.Add(ft);
+
+                foreach (string type in allTypes)
+                {
+                    string thisType   = type;
+                    bool   isSel      = type.Equals(selType, StringComparison.OrdinalIgnoreCase);
+                    bool   folderOnly = folder != null && folder.Contains(type)
+                        && !common.Any(c => c.Equals(type, StringComparison.OrdinalIgnoreCase));
+
+                    var chip = MakeChip(type, isSel);
+                    if (folderOnly && !isSel) chip.BorderBrush = BrushWarn;
+
+                    chip.MouseLeftButtonUp += (_, _) =>
+                    {
+                        selType = thisType;
+                        txType.Text = thisType;
+                        BuildTypeChips();
+                    };
+                    typeChips.Children.Add(chip);
+                }
+
+                if (allTypes.Count == 0)
+                    typeChips.Children.Add(new TextBlock
+                    {
+                        Text = "No preset types — use the box below.",
+                        FontSize = 10, Foreground = BrushTxtSec, Margin = new Thickness(0, 2, 0, 4)
+                    });
+            }
+
+            void BuildCatChips()
+            {
+                catChips.Children.Clear();
+                foreach (string cat in FamilyRenameService.AllCategories)
+                {
+                    string thisCat = cat;
+                    var    chip    = MakeChip(cat, cat.Equals(selCat, StringComparison.OrdinalIgnoreCase));
+                    chip.MouseLeftButtonUp += (_, _) =>
+                    {
+                        selCat = thisCat;
+                        BuildCatChips();
+                        BuildTypeChips();
+                        Rebuild();
+                    };
+                    catChips.Children.Add(chip);
+                }
+            }
+
+            BuildCatChips();
+            BuildTypeChips();
             Rebuild();
 
+            // ── apply ─────────────────────────────────────────────────────────────────
             var applyBtn = PickerHelper.MakeButton("Apply", (object _, MouseButtonEventArgs _) =>
             {
-                string cat  = txCat.Text.Trim().ToUpperInvariant();
                 string type = txType.Text.Trim();
                 string name = txName.Text.Trim().Replace(' ', '_');
                 string size = txSize.Text.Trim();
 
-                if (string.IsNullOrEmpty(cat) || string.IsNullOrEmpty(type))
+                if (string.IsNullOrEmpty(selCat) || string.IsNullOrEmpty(type))
                 {
-                    previewTb.Text       = "⚠  Category Code and Type are required.";
+                    previewTb.Text       = "⚠  Category and Type are required.";
                     previewTb.Foreground = BrushError;
                     return;
                 }
 
-                var parts = new List<string>();
-                parts.Add(Capitalise(type));
-                if (!string.IsNullOrEmpty(name)) parts.AddRange(
-                    name.Split('_', StringSplitOptions.RemoveEmptyEntries)
+                var parts = new List<string> { Capitalise(type) };
+                if (!string.IsNullOrEmpty(name))
+                    parts.AddRange(name.Split('_', StringSplitOptions.RemoveEmptyEntries)
                         .Select(t => char.IsDigit(t[0]) ? t : Capitalise(t)));
                 if (!string.IsNullOrEmpty(size)) parts.Add(size);
 
-                row.ProposedName = $"{cat}-{string.Join("_", parts)}.rfa";
-
+                row.ProposedName = $"{selCat}-{string.Join("_", parts)}.rfa";
                 if (!selectedRows.Contains(row)) selectedRows.Add(row);
                 outerBorder.Background = BrushSelectedBg;
             }, height: 28);
 
-            // Input grid — CAT | gap | TYPE | gap | NAME (wide) | gap | SIZE
-            var inputGrid = new Grid { Margin = new Thickness(0, 4, 0, 0) };
-            foreach (var w in new GridLength[]
-            {
-                new(70), new(8), new(120), new(8),
-                new(1, GridUnitType.Star), new(8), new(120)
-            })
-                inputGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = w });
+            // ── layout ────────────────────────────────────────────────────────────────
+            // Row A: CATEGORY chips (left) | TYPE chips + TextBox (right)
+            var rowA = new Grid { Margin = new Thickness(0, 4, 0, 0) };
+            rowA.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            rowA.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+            rowA.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });
 
-            void AddField(int col, System.Windows.Controls.TextBox tb, string label)
-            {
-                var sp = new StackPanel();
-                sp.Children.Add(new TextBlock
-                {
-                    Text = label, FontSize = 9, Foreground = BrushTxtSec, Margin = new Thickness(0, 0, 0, 2)
-                });
-                sp.Children.Add(tb);
-                Grid.SetColumn(sp, col);
-                inputGrid.Children.Add(sp);
-            }
+            var catSec = new StackPanel();
+            catSec.Children.Add(new TextBlock { Text = "CATEGORY", FontSize = 9, Foreground = BrushTxtSec, Margin = new Thickness(0, 0, 0, 4) });
+            catSec.Children.Add(catChips);
+            Grid.SetColumn(catSec, 0);
+            rowA.Children.Add(catSec);
 
-            AddField(0, txCat,  "CATEGORY");
-            AddField(2, txType, "TYPE");
-            AddField(4, txName, "NAME (brand / model)");
-            AddField(6, txSize, "SIZE (rating)");
+            var typeSec = new StackPanel();
+            typeSec.Children.Add(new TextBlock { Text = "TYPE  (click or type below)", FontSize = 9, Foreground = BrushTxtSec, Margin = new Thickness(0, 0, 0, 4) });
+            typeSec.Children.Add(typeChips);
+            typeSec.Children.Add(txType);
+            Grid.SetColumn(typeSec, 2);
+            rowA.Children.Add(typeSec);
 
-            // Preview row with Apply button
-            var previewRow = new Grid { Margin = new Thickness(0, 4, 0, 0) };
-            previewRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            previewRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            // Row B: NAME | SIZE
+            var rowB = new Grid { Margin = new Thickness(0, 8, 0, 0) };
+            rowB.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });
+            rowB.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+            rowB.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
+            var nameSec = new StackPanel();
+            nameSec.Children.Add(new TextBlock { Text = "NAME  (brand / model)", FontSize = 9, Foreground = BrushTxtSec, Margin = new Thickness(0, 0, 0, 2) });
+            nameSec.Children.Add(txName);
+            Grid.SetColumn(nameSec, 0);
+            rowB.Children.Add(nameSec);
+
+            var sizeSec = new StackPanel();
+            sizeSec.Children.Add(new TextBlock { Text = "SIZE  (optional)", FontSize = 9, Foreground = BrushTxtSec, Margin = new Thickness(0, 0, 0, 2) });
+            sizeSec.Children.Add(txSize);
+            Grid.SetColumn(sizeSec, 2);
+            rowB.Children.Add(sizeSec);
+
+            // Row C: preview + Apply
+            var rowC = new Grid { Margin = new Thickness(0, 8, 0, 0) };
+            rowC.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            rowC.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             Grid.SetColumn(previewTb, 0);
-            previewRow.Children.Add(previewTb);
-
-            var applyWrapper = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            applyWrapper.Children.Add(applyBtn);
-            Grid.SetColumn(applyWrapper, 1);
-            previewRow.Children.Add(applyWrapper);
+            rowC.Children.Add(previewTb);
+            var applyWrap = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            applyWrap.Children.Add(applyBtn);
+            Grid.SetColumn(applyWrap, 1);
+            rowC.Children.Add(applyWrap);
 
             var content = new StackPanel { Margin = new Thickness(0, 6, 0, 2) };
             content.Children.Add(new TextBlock
             {
-                Text = "Convention:  CATCODE-Type_Name_Size.rfa  " +
-                       "e.g.  ELEC-Transformer_Trihal_Schneider_100kVA.rfa",
-                FontSize = 10, Foreground = BrushTxtSec, Margin = new Thickness(0, 0, 0, 6)
+                Text = "Convention:  CATCODE-Type_Name_Size.rfa   e.g.  ELEC-Transformer_Trihal_Schneider_100kVA.rfa",
+                FontSize = 10, Foreground = BrushTxtSec, Margin = new Thickness(0, 0, 0, 8)
             });
-            content.Children.Add(inputGrid);
-            content.Children.Add(previewRow);
+            content.Children.Add(rowA);
+            content.Children.Add(rowB);
+            content.Children.Add(rowC);
 
             return new Border
             {
-                Padding = new Thickness(8, 6, 8, 8),
+                Padding = new Thickness(8, 8, 8, 10),
                 Background = BrushHelperBg,
                 BorderBrush = BrushInfo, BorderThickness = new Thickness(0, 1, 0, 0),
                 Child = content
