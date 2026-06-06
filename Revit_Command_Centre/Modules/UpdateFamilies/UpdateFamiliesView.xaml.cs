@@ -33,6 +33,8 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
         private readonly HashSet<RenameRow> _selectedRenameRows = new();
         // Populated when scanning; maps CATCODE → set of type tokens found in compliant files
         private Dictionary<string, HashSet<string>> _existingTypesByCategory = new();
+        // Cache of family metadata read from .rfa files via the ExternalEvent scan
+        private readonly Dictionary<string, FamilyMetadata> _metadataCache = new();
 
         private static readonly SolidColorBrush BrushInfo       = new(Color.FromRgb(0x18, 0x5F, 0xA5));
         private static readonly SolidColorBrush BrushSuccess    = new(Color.FromRgb(0x1D, 0x9E, 0x75));
@@ -332,6 +334,20 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             return result;
         }
 
+        private void TriggerFamilyScan(string filePath, Action<FamilyMetadata> onResult)
+        {
+            if (_metadataCache.TryGetValue(filePath, out var cached))
+            {
+                onResult(cached);
+                return;
+            }
+            if (App.FamilyScanHandler == null || App.FamilyScanEvent == null) return;
+            App.FamilyScanHandler.FilePath = filePath;
+            App.FamilyScanHandler.OnResult = meta => { _metadataCache[meta.FilePath] = meta; onResult(meta); };
+            App.FamilyScanHandler.OnError  = _ => { }; // user fills in manually if scan fails
+            App.FamilyScanEvent.Raise();
+        }
+
         private void PopulateRenameList()
         {
             _selectedRenameRows.Clear();
@@ -461,7 +477,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
                 grid.Children.Add(statusStack);
 
                 // Inline naming helper panel (collapsed until expand link is clicked)
-                var helperPanel = MakeNamingHelperPanel(row, border, _selectedRenameRows, _existingTypesByCategory);
+                var (helperPanel, applyMeta) = MakeNamingHelperPanel(row, border, _selectedRenameRows, _existingTypesByCategory);
                 helperPanel.Visibility = Visibility.Collapsed;
                 outerStack.Children.Add(helperPanel);
 
@@ -476,6 +492,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
                     {
                         helperPanel.Visibility = Visibility.Visible;
                         expandLink.Text = "  ▾ close";
+                        TriggerFamilyScan(row.CurrentPath, applyMeta);
                     }
                 };
             }
@@ -518,7 +535,7 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
         /// Category and Type use chip pickers (WrapPanel — no ControlTemplate, AMD-safe).
         /// existingTypes contains types already found in this folder per CATCODE.
         /// </summary>
-        private static Border MakeNamingHelperPanel(
+        private static (Border Panel, Action<FamilyMetadata> ApplyMeta) MakeNamingHelperPanel(
             RenameRow row, Border outerBorder, HashSet<RenameRow> selectedRows,
             IReadOnlyDictionary<string, HashSet<string>> existingTypes)
         {
@@ -736,6 +753,32 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             Grid.SetColumn(applyWrap, 1);
             rowC.Children.Add(applyWrap);
 
+            // Loading indicator — shown until metadata arrives from the ExternalEvent scan
+            var loadingTb = new TextBlock
+            {
+                Text = "⟳  Reading family data…",
+                FontSize = 10, Foreground = BrushTxtSec, Margin = new Thickness(0, 6, 0, 0)
+            };
+
+            // Called (on UI thread) when FamilyScanEventHandler returns metadata
+            Action<FamilyMetadata> applyMeta = meta =>
+            {
+                loadingTb.Visibility = Visibility.Collapsed;
+                string code = FamilyRenameService.MapRevitCategory(meta.RevitCategoryName);
+                if (!string.IsNullOrEmpty(code))
+                {
+                    selCat = code;
+                    BuildCatChips();
+                }
+                // Pre-fill name from Manufacturer + Model
+                var nameParts = new List<string>();
+                if (!string.IsNullOrEmpty(meta.Manufacturer)) nameParts.Add(meta.Manufacturer.Trim().Replace(" ", ""));
+                if (!string.IsNullOrEmpty(meta.Model))        nameParts.Add(meta.Model.Trim().Replace(" ", ""));
+                if (nameParts.Count > 0) txName.Text = string.Join("_", nameParts);
+                BuildTypeChips();
+                Rebuild();
+            };
+
             var content = new StackPanel { Margin = new Thickness(0, 6, 0, 2) };
             content.Children.Add(new TextBlock
             {
@@ -745,14 +788,16 @@ namespace Revit_Command_Centre.Modules.UpdateFamilies
             content.Children.Add(rowA);
             content.Children.Add(rowB);
             content.Children.Add(rowC);
+            content.Children.Add(loadingTb);
 
-            return new Border
+            var panel = new Border
             {
                 Padding = new Thickness(8, 8, 8, 10),
                 Background = BrushHelperBg,
                 BorderBrush = BrushInfo, BorderThickness = new Thickness(0, 1, 0, 0),
                 Child = content
             };
+            return (panel, applyMeta);
         }
 
         private static System.Windows.Controls.TextBox MakeHelperTextBox(string text, string toolTip) =>

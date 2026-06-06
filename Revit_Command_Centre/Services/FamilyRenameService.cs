@@ -113,6 +113,30 @@ namespace Revit_Command_Centre.Services
             ("hose",         "FIRE",   "HoseReel"),
         };
 
+        /// <summary>
+        /// Maps a Revit built-in category name (e.g. "Electrical Equipment") to one of our
+        /// CATCODES.  Returns empty string when no mapping is found.
+        /// </summary>
+        public static string MapRevitCategory(string revitCategoryName)
+        {
+            if (string.IsNullOrEmpty(revitCategoryName)) return "";
+            string n = revitCategoryName;
+            if (n.Contains("Electrical",  StringComparison.OrdinalIgnoreCase)) return "ELEC";
+            if (n.Contains("Lighting",    StringComparison.OrdinalIgnoreCase)) return "LIGHT";
+            if (n.Contains("Mechanical",  StringComparison.OrdinalIgnoreCase)) return "MECH";
+            if (n.Contains("Plumbing",    StringComparison.OrdinalIgnoreCase)) return "PLUMB";
+            if (n.Contains("Pipe",        StringComparison.OrdinalIgnoreCase)) return "PLUMB";
+            if (n.Contains("Sprinkler",   StringComparison.OrdinalIgnoreCase)) return "FIRE";
+            if (n.Contains("Fire",        StringComparison.OrdinalIgnoreCase)) return "FIRE";
+            if (n.Contains("Structural",  StringComparison.OrdinalIgnoreCase)) return "STRUCT";
+            if (n.Contains("Door",        StringComparison.OrdinalIgnoreCase)) return "ARCH";
+            if (n.Contains("Window",      StringComparison.OrdinalIgnoreCase)) return "ARCH";
+            if (n.Contains("Ceiling",     StringComparison.OrdinalIgnoreCase)) return "ARCH";
+            if (n.Contains("Stair",       StringComparison.OrdinalIgnoreCase)) return "ARCH";
+            if (n.Contains("Railing",     StringComparison.OrdinalIgnoreCase)) return "ARCH";
+            return "";
+        }
+
         /// <summary>Returns the canonical type names for the given category code.</summary>
         public static IReadOnlyList<string> GetTypesForCategory(string catCode) =>
             Keywords
